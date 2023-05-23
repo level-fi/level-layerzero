@@ -100,7 +100,7 @@ contract BridgeProxy is Initializable, NonblockingLzAppUpgradeable {
                 _toAddress := mload(add(_to, 20))
             }
 
-            IBridgeRouter(router).addReceiveInfo(_srcChainId, _srcAddress, _nonce, _toAddress, _amount);
+            IBridgeRouter(router).addCreditInfo(_srcChainId, _srcAddress, _nonce, _toAddress, _amount);
             emit ReceiveFromChain(_srcChainId, _srcAddress, _nonce, _toAddress, _amount);
         } else if (_packetType == PT_BURN) {
             (, uint256 _amount) = abi.decode(_payload, (uint16, uint256));
