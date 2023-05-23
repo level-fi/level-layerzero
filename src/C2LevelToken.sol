@@ -5,10 +5,13 @@ pragma solidity 0.8.18;
 import {ERC20Burnable} from "openzeppelin/token/ERC20/extensions/ERC20Burnable.sol";
 import {ERC20} from "openzeppelin/token/ERC20/ERC20.sol";
 import {Ownable} from "openzeppelin/access/Ownable.sol";
+import {IERC20Bridged} from "./interfaces/IERC20Bridged.sol";
 
-contract C2LevelToken is ERC20Burnable, Ownable {
+contract C2LevelToken is ERC20Burnable, Ownable, IERC20Bridged {
     address public bridgeRouter;
-    uint256 public debtAmountBurned;
+    /// @notice number of tokens wait to be burned on original chain. Add up when user request to burn an amount of tokens
+    /// reset when burn message sent to original chain
+    uint256 public burnDebtAmount;
 
     modifier onlyRouter() {
         require(msg.sender == bridgeRouter, "!Router");
@@ -28,17 +31,17 @@ contract C2LevelToken is ERC20Burnable, Ownable {
     }
 
     function resetDebtAmountBurned() external onlyRouter {
-        debtAmountBurned = 0;
-        emit ResetDebtAmountBurned();
+        burnDebtAmount = 0;
+        emit BurnDebtAmountReset();
     }
 
     function burn(uint256 _amount) public override {
-        debtAmountBurned += _amount;
+        burnDebtAmount += _amount;
         super.burn(_amount);
     }
 
     function burnFrom(address _account, uint256 _amount) public override {
-        debtAmountBurned += _amount;
+        burnDebtAmount += _amount;
         super.burnFrom(_account, _amount);
     }
 
@@ -51,5 +54,5 @@ contract C2LevelToken is ERC20Burnable, Ownable {
     event BridgeRouterSet(address _router);
     event BridgeMinted(address _to, uint256 _amount);
     event BridgeBurnt(address _to, uint256 _amount);
-    event ResetDebtAmountBurned();
+    event BurnDebtAmountReset();
 }

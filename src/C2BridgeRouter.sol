@@ -6,15 +6,8 @@ import {ReentrancyGuardUpgradeable} from "openzeppelin-contracts-upgradeable/sec
 import {Initializable} from "openzeppelin-contracts-upgradeable/proxy/utils/Initializable.sol";
 import {OwnableUpgradeable} from "openzeppelin-contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {ReceiveInfo} from "./interfaces/IBridgeRouter.sol";
-import "./interfaces/IBridgeProxy.sol";
-
-interface IERC20Bridge {
-    function bridgeMint(address account, uint256 amount) external;
-    function bridgeBurn(address account, uint256 amount) external;
-    function resetDebtAmountBurned() external;
-    function bridgeRouter() external view returns (address);
-    function debtAmountBurned() external view returns (uint256);
-}
+import {IBridgeProxy} from "./interfaces/IBridgeProxy.sol";
+import {IERC20Bridged} from "./interfaces/IERC20Bridged.sol";
 
 contract C2BridgeRouter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     uint16 public constant MAIN_CHAIN_ID = 10102;
@@ -23,7 +16,7 @@ contract C2BridgeRouter is Initializable, OwnableUpgradeable, ReentrancyGuardUpg
     address public validator;
     address public controller;
 
-    IERC20Bridge token;
+    IERC20Bridged token;
     IBridgeProxy bridgeProxy;
     mapping(uint16 => mapping(bytes => mapping(uint64 => ReceiveInfo))) public receiveQueue;
 
@@ -46,7 +39,7 @@ contract C2BridgeRouter is Initializable, OwnableUpgradeable, ReentrancyGuardUpg
         require(_controller != address(0), "Invalid address");
         __Ownable_init();
         __ReentrancyGuard_init();
-        token = IERC20Bridge(_token);
+        token = IERC20Bridged(_token);
         bridgeProxy = IBridgeProxy(_bridgeProxy);
         validator = _validator;
         controller = _controller;
@@ -63,7 +56,7 @@ contract C2BridgeRouter is Initializable, OwnableUpgradeable, ReentrancyGuardUpg
     }
 
     function estimateBurnFee() external view returns (uint256, uint256) {
-        return bridgeProxy.estimateBurnFee(MAIN_CHAIN_ID, token.debtAmountBurned(), false, new bytes(0));
+        return bridgeProxy.estimateBurnFee(MAIN_CHAIN_ID, token.burnDebtAmount(), false, new bytes(0));
     }
 
     /*================ MULTITATIVE ======================= */
@@ -86,7 +79,7 @@ contract C2BridgeRouter is Initializable, OwnableUpgradeable, ReentrancyGuardUpg
     // Send burn tokens message to main chain
     function burn() external payable nonReentrant {
         require(msg.sender == controller, "!Controller");
-        uint256 _amount = token.debtAmountBurned();
+        uint256 _amount = token.burnDebtAmount();
         require(_amount > 0, "Amount = 0");
         token.resetDebtAmountBurned();
         bridgeProxy.burnTokens{value: msg.value}(MAIN_CHAIN_ID, _amount, payable(msg.sender), address(0), new bytes(0));

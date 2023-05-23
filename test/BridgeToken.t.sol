@@ -13,9 +13,9 @@ import {BridgeRouter} from "../src/BridgeRouter.sol";
 import {C2BridgeRouter} from "../src/C2BridgeRouter.sol";
 
 contract BridgeTokenTest is Test {
-    uint16 constant LOCAL_CHAIN_ID = 1;
-    uint16 constant REMOTE_CHAIN_ID = 2;
-    address constant ZERO_ADDR = 0x0000000000000000000000000000000000000000;
+    uint16 constant LOCAL_CHAIN_ID = 10102;
+    uint16 constant REMOTE_CHAIN_ID = 10143;
+    address constant ZERO_ADDR = address(0);
 
     address owner;
     address user1 = vm.addr(uint256(keccak256(abi.encodePacked("user1"))));
@@ -183,13 +183,13 @@ contract BridgeTokenTest is Test {
         vm.startPrank(user1);
         remoteToken.burn(100e18);
 
-        assertEq(remoteToken.debtAmountBurned(), 100e18);
+        assertEq(remoteToken.burnDebtAmount(), 100e18);
         vm.stopPrank();
 
         vm.startPrank(controller);
         (_nativeFee,) = remoteRouter.estimateBurnFee();
         remoteRouter.burn{value: _nativeFee}();
-        assertEq(remoteToken.debtAmountBurned(), 0);
+        assertEq(remoteToken.burnDebtAmount(), 0);
         vm.stopPrank();
 
         vm.startPrank(validator);

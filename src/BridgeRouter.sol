@@ -7,24 +7,21 @@ import {SafeERC20} from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuardUpgradeable} from "openzeppelin-contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import {Initializable} from "openzeppelin-contracts-upgradeable/proxy/utils/Initializable.sol";
 import {OwnableUpgradeable} from "openzeppelin-contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {PausableUpgradeable} from "openzeppelin-contracts-upgradeable/security/PausableUpgradeable.sol";
 import {ReceiveInfo} from "./interfaces/IBridgeRouter.sol";
-import "./interfaces/IBridgeProxy.sol";
+import {IBridgeProxy} from "./interfaces/IBridgeProxy.sol";
+import {IERC20Burnable} from "./interfaces/IERC20Burnable.sol";
 
-interface IERC20Burnable is IERC20 {
-    function burn(uint256 amount) external;
-}
-
-contract BridgeRouter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable {
+contract BridgeRouter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable {
     using SafeERC20 for IERC20;
 
     address public validator;
-    bool public paused;
 
     address token;
     IBridgeProxy bridgeProxy;
 
-    mapping(uint16 => mapping(bytes => mapping(uint64 => ReceiveInfo))) public receiveQueue;
-    mapping(uint16 => mapping(bytes => mapping(uint64 => uint256))) public burnQueue;
+    mapping(uint16 srcChain => mapping(bytes srcAddr => mapping(uint64 nonce => ReceiveInfo))) public receiveQueue;
+    mapping(uint16 srcChain => mapping(bytes srcAddr => mapping(uint64 nonce => uint256))) public burnQueue;
 
     modifier onlyBridgeProxy() {
         require(msg.sender == address(bridgeProxy), "!Bridge Proxy");
@@ -41,6 +38,7 @@ contract BridgeRouter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgra
         require(_validator != address(0), "Invalid address");
         __Ownable_init();
         __ReentrancyGuard_init();
+        __Pausable_init();
         token = _token;
         bridgeProxy = IBridgeProxy(_bridgeProxy);
         validator = _validator;
@@ -57,13 +55,10 @@ contract BridgeRouter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgra
     }
 
     /*================ MULTITATIVE ======================= */
-
-    function bridge(
-        uint16 _dstChainId,
-        address _to, // where to deliver the tokens on the destination chain
-        uint256 _amount // how many tokens to send
-    ) external payable nonReentrant {
-        require(!paused, "Paused");
+    /// @param _dstChainId destination chain ID, defined by layerzero
+    /// @param _to where to deliver the tokens on the destination chain
+    /// @param _amount number of tokens to send
+    function bridge(uint16 _dstChainId, address _to, uint256 _amount) external payable nonReentrant whenNotPaused {
         require(_to != address(0), "Invalid address");
 
         IERC20(token).safeTransferFrom(msg.sender, address(this), _amount);
@@ -113,9 +108,12 @@ contract BridgeRouter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgra
     }
 
     /*================== ADMIN =================*/
-    function pauseSendTokens(bool _pause) external onlyOwner {
-        paused = _pause;
-        emit Paused(_pause);
+    function pauseSendTokens() external onlyOwner {
+        _pause();
+    }
+
+    function unpauseSendTokens() external onlyOwner {
+        _unpause();
     }
 
     /*=============== EVENTS =====================*/
