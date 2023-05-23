@@ -100,7 +100,7 @@ contract BridgeTokenTest is Test {
 
         vm.startPrank(validator);
         (address _to, uint256 _amount) =
-            remoteRouter.receiveQueue(LOCAL_CHAIN_ID, abi.encodePacked(address(localProxy), address(remoteProxy)), 1);
+            remoteRouter.creditQueue(LOCAL_CHAIN_ID, abi.encodePacked(address(localProxy), address(remoteProxy)), 1);
         console.log(_to, _amount);
         remoteRouter.approveTransfer(LOCAL_CHAIN_ID, abi.encodePacked(address(localProxy), address(remoteProxy)), 1);
         assertEq(remoteToken.balanceOf(address(remoteRouter)), 0);
@@ -133,7 +133,7 @@ contract BridgeTokenTest is Test {
 
         vm.startPrank(validator);
         (_to, _amount) =
-            localRouter.receiveQueue(REMOTE_CHAIN_ID, abi.encodePacked(address(remoteProxy), address(localProxy)), 1);
+            localRouter.creditQueue(REMOTE_CHAIN_ID, abi.encodePacked(address(remoteProxy), address(localProxy)), 1);
         console.log(_to, _amount);
         localRouter.approveTransfer(REMOTE_CHAIN_ID, abi.encodePacked(address(remoteProxy), address(localProxy)), 1);
         assertEq(remoteToken.balanceOf(address(remoteRouter)), 0);
@@ -171,7 +171,7 @@ contract BridgeTokenTest is Test {
 
         vm.startPrank(validator);
         (address _to, uint256 _amount) =
-            remoteRouter.receiveQueue(LOCAL_CHAIN_ID, abi.encodePacked(address(localProxy), address(remoteProxy)), 1);
+            remoteRouter.creditQueue(LOCAL_CHAIN_ID, abi.encodePacked(address(localProxy), address(remoteProxy)), 1);
         console.log(_to, _amount);
         remoteRouter.approveTransfer(LOCAL_CHAIN_ID, abi.encodePacked(address(localProxy), address(remoteProxy)), 1);
         assertEq(remoteToken.balanceOf(address(remoteRouter)), 0);
