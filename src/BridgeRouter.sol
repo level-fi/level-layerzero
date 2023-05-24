@@ -15,10 +15,12 @@ import {IERC20Burnable} from "./interfaces/IERC20Burnable.sol";
 contract BridgeRouter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable {
     using SafeERC20 for IERC20;
 
-    address public validator;
+    uint256 public constant MAX_AMOUNT_BRIDGE = 5_000_000e18;
+    uint256 public constant MIN_AMOUNT_BRIDGE = 50e18;
 
-    address token;
-    IBridgeProxy bridgeProxy;
+    address public validator;
+    address public token;
+    IBridgeProxy public bridgeProxy;
 
     mapping(uint16 srcChain => mapping(bytes srcAddr => mapping(uint64 nonce => CreditInfo))) public creditQueue;
     mapping(uint16 srcChain => mapping(bytes srcAddr => mapping(uint64 nonce => uint256))) public burnQueue;
@@ -60,6 +62,7 @@ contract BridgeRouter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgra
     /// @param _amount number of tokens to send
     function bridge(uint16 _dstChainId, address _to, uint256 _amount) external payable nonReentrant whenNotPaused {
         require(_to != address(0), "Invalid address");
+        require(_amount >= MIN_AMOUNT_BRIDGE && _amount <= MAX_AMOUNT_BRIDGE, "Invalid amount");
 
         IERC20(token).safeTransferFrom(msg.sender, address(this), _amount);
         bridgeProxy.sendTokens{value: msg.value}(

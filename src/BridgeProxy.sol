@@ -112,8 +112,8 @@ contract BridgeProxy is Initializable, NonblockingLzAppUpgradeable {
     }
     /*=========================== EVENTS ========================*/
 
-    event SendToChain(uint16 _srcChainId, bytes _to, uint256 _amount, uint64 _nonce);
+    event SendToChain(uint16 _dstChainId, bytes _to, uint256 _amount, uint64 _nonce);
     event ReceiveFromChain(uint16 _srcChainId, bytes _srcAddress, uint64 _nonce, address _to, uint256 _amount);
     event BurnFromChain(uint16 _srcChainId, bytes _srcAddress, uint64 _nonce, uint256 _amount);
-    event BurnToChain(uint16 _srcChainId, uint256 _amount, uint64 _nonce);
+    event BurnToChain(uint16 _dstChainId, uint256 _amount, uint64 _nonce);
 }
