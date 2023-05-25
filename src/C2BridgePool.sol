@@ -6,18 +6,20 @@ import {ReentrancyGuardUpgradeable} from "openzeppelin-contracts-upgradeable/sec
 import {Initializable} from "openzeppelin-contracts-upgradeable/proxy/utils/Initializable.sol";
 import {OwnableUpgradeable} from "openzeppelin-contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {PausableUpgradeable} from "openzeppelin-contracts-upgradeable/security/PausableUpgradeable.sol";
-import {CreditInfo} from "./interfaces/IBridgeRouter.sol";
+import {CreditInfo} from "./interfaces/IBridgePool.sol";
 import {IBridgeProxy} from "./interfaces/IBridgeProxy.sol";
 import {IERC20Bridged} from "./interfaces/IERC20Bridged.sol";
 
-contract C2BridgeRouter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable {
+contract C2BridgePool is Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable {
     uint16 public constant MAIN_CHAIN_ID = 10102;
+    uint256 public constant MAX_AMOUNT_BRIDGE = 5_000_000e18;
+    uint256 public constant MIN_AMOUNT_BRIDGE = 50e18;
 
     address public validator;
     address public controller;
 
-    IERC20Bridged token;
-    IBridgeProxy bridgeProxy;
+    IERC20Bridged public token;
+    IBridgeProxy public bridgeProxy;
     mapping(uint16 => mapping(bytes => mapping(uint64 => CreditInfo))) public creditQueue;
 
     modifier onlyBridgeProxy() {
@@ -68,6 +70,7 @@ contract C2BridgeRouter is Initializable, OwnableUpgradeable, ReentrancyGuardUpg
         uint256 _amount // how many tokens to send
     ) external payable nonReentrant whenNotPaused {
         require(_to != address(0), "Invalid address");
+        require(_amount >= MIN_AMOUNT_BRIDGE && _amount <= MAX_AMOUNT_BRIDGE, "Invalid amount");
 
         token.bridgeBurn(msg.sender, _amount);
         bridgeProxy.sendTokens{value: msg.value}(
