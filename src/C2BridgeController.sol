@@ -2,28 +2,24 @@
 
 pragma solidity 0.8.18;
 
-import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
-import {SafeERC20} from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuardUpgradeable} from "openzeppelin-contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import {Initializable} from "openzeppelin-contracts-upgradeable/proxy/utils/Initializable.sol";
 import {OwnableUpgradeable} from "openzeppelin-contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {PausableUpgradeable} from "openzeppelin-contracts-upgradeable/security/PausableUpgradeable.sol";
-import {CreditInfo} from "./interfaces/IBridgePool.sol";
+import {CreditInfo} from "./interfaces/IBridgeController.sol";
 import {IBridgeProxy} from "./interfaces/IBridgeProxy.sol";
-import {IERC20Burnable} from "./interfaces/IERC20Burnable.sol";
+import {IERC20Bridged} from "./interfaces/IERC20Bridged.sol";
 
-contract BridgePool is Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable {
-    using SafeERC20 for IERC20;
-
+contract C2BridgeController is Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable {
+    uint16 public constant MAIN_CHAIN_ID = 10102;
     uint256 public constant MAX_AMOUNT_BRIDGE = 5_000_000e18;
     uint256 public constant MIN_AMOUNT_BRIDGE = 50e18;
 
     address public validator;
-    address public token;
-    IBridgeProxy public bridgeProxy;
 
-    mapping(uint16 srcChain => mapping(bytes srcAddr => mapping(uint64 nonce => CreditInfo))) public creditQueue;
-    mapping(uint16 srcChain => mapping(bytes srcAddr => mapping(uint64 nonce => uint256))) public burnQueue;
+    IERC20Bridged public token;
+    IBridgeProxy public bridgeProxy;
+    mapping(uint16 => mapping(bytes => mapping(uint64 => CreditInfo))) public creditQueue;
 
     modifier onlyBridgeProxy() {
         require(msg.sender == address(bridgeProxy), "!Bridge Proxy");
@@ -41,7 +37,7 @@ contract BridgePool is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrade
         __Ownable_init();
         __ReentrancyGuard_init();
         __Pausable_init();
-        token = _token;
+        token = IERC20Bridged(_token);
         bridgeProxy = IBridgeProxy(_bridgeProxy);
         validator = _validator;
     }
@@ -57,14 +53,16 @@ contract BridgePool is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrade
     }
 
     /*================ MULTITATIVE ======================= */
-    /// @param _dstChainId destination chain ID, defined by layerzero
-    /// @param _to where to deliver the tokens on the destination chain
-    /// @param _amount number of tokens to send
-    function bridge(uint16 _dstChainId, address _to, uint256 _amount) external payable nonReentrant whenNotPaused {
+
+    function bridge(
+        uint16 _dstChainId,
+        address _to, // where to deliver the tokens on the destination chain
+        uint256 _amount // how many tokens to send
+    ) external payable nonReentrant whenNotPaused {
         require(_to != address(0), "Invalid address");
         require(_amount >= MIN_AMOUNT_BRIDGE && _amount <= MAX_AMOUNT_BRIDGE, "Invalid amount");
 
-        IERC20(token).safeTransferFrom(msg.sender, address(this), _amount);
+        token.burnFrom(msg.sender, _amount);
         bridgeProxy.sendTokens{value: msg.value}(
             _dstChainId, abi.encodePacked(_to), _amount, payable(msg.sender), address(0), new bytes(0)
         );
@@ -77,37 +75,17 @@ contract BridgePool is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrade
         require(_receiveInfo.amount > 0 && _receiveInfo.to != address(0), "Not exists");
 
         delete creditQueue[_srcChainId][_srcAddress][_nonce];
-        IERC20(token).safeTransfer(_receiveInfo.to, _receiveInfo.amount);
+        token.bridgeMint(_receiveInfo.to, _receiveInfo.amount);
         emit Approved(_srcChainId, _srcAddress, _nonce, _receiveInfo.to, _receiveInfo.amount);
     }
-
-    function approveBurn(uint16 _srcChainId, bytes calldata _srcAddress, uint64 _nonce) external nonReentrant {
-        require(msg.sender == validator, "!Validator");
-        uint256 _burnAmount = burnQueue[_srcChainId][_srcAddress][_nonce];
-        require(_burnAmount > 0, "Not exists");
-
-        delete burnQueue[_srcChainId][_srcAddress][_nonce];
-        IERC20Burnable(token).burn(_burnAmount);
-        emit Burned(_srcChainId, _srcAddress, _nonce, _burnAmount);
-    }
-
     /*================= BRIDGE ===============*/
+
     function addCreditInfo(uint16 _srcChainId, bytes memory _srcAddress, uint64 _nonce, address _to, uint256 _amount)
         external
         onlyBridgeProxy
     {
         require(creditQueue[_srcChainId][_srcAddress][_nonce].to == address(0), "Key exists");
         creditQueue[_srcChainId][_srcAddress][_nonce] = CreditInfo({to: _to, amount: _amount});
-        emit CreditInfoAddedToQueue(_srcChainId, _srcAddress, _nonce, _to, _amount);
-    }
-
-    function addBurnInfo(uint16 _srcChainId, bytes memory _srcAddress, uint64 _nonce, uint256 _amount)
-        external
-        onlyBridgeProxy
-    {
-        require(burnQueue[_srcChainId][_srcAddress][_nonce] == 0, "Key exists");
-        burnQueue[_srcChainId][_srcAddress][_nonce] = _amount;
-        emit BurnInfoAddedToQueue(_srcChainId, _srcAddress, _nonce, _amount);
     }
 
     /*================== ADMIN =================*/
@@ -120,11 +98,6 @@ contract BridgePool is Initializable, OwnableUpgradeable, ReentrancyGuardUpgrade
     }
 
     /*=============== EVENTS =====================*/
-
-    event Paused(bool isPaused);
     event Approved(uint16 _srcChainId, bytes _srcAddress, uint64 _nonce, address _to, uint256 _amount);
-    event Burned(uint16 _srcChainId, bytes _srcAddress, uint64 _nonce, uint256 _amount);
     event Bridge(address _to, uint256 _amount, address _refundAddress);
-    event BurnInfoAddedToQueue(uint16 _srcChainId, bytes _srcAddress, uint64 _nonce, uint256 _amount);
-    event CreditInfoAddedToQueue(uint16 _srcChainId, bytes _srcAddress, uint64 _nonce, address _to, uint256 _amount);
 }

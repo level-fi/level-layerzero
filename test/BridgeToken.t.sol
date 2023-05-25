@@ -9,8 +9,8 @@ import {LayerZeroEndpoint} from "./mocks/LayerZeroEndpoint.sol";
 import {C2LevelToken} from "../src/C2LevelToken.sol";
 import {LevelToken} from "../src/mocks/LevelToken.sol";
 import {BridgeProxy} from "../src/BridgeProxy.sol";
-import {BridgePool} from "../src/BridgePool.sol";
-import {C2BridgePool} from "../src/C2BridgePool.sol";
+import {BridgeController} from "../src/BridgeController.sol";
+import {C2BridgeController} from "../src/C2BridgeController.sol";
 
 contract BridgeTokenTest is Test {
     uint16 constant LOCAL_CHAIN_ID = 10102;
@@ -20,18 +20,17 @@ contract BridgeTokenTest is Test {
     address owner;
     address user1 = vm.addr(uint256(keccak256(abi.encodePacked("user1"))));
     address validator = vm.addr(uint256(keccak256(abi.encodePacked("validator"))));
-    address controller = vm.addr(uint256(keccak256(abi.encodePacked("controller"))));
 
     LayerZeroEndpoint localEndPoint;
     LayerZeroEndpoint remoteEndPoint;
     LevelToken localToken;
     BridgeProxy localProxy;
-    BridgePool localPool;
+    BridgeController localController;
 
     // remote
     C2LevelToken remoteToken;
     BridgeProxy remoteProxy;
-    C2BridgePool remotePool;
+    C2BridgeController remoteController;
 
     function setUp() public {
         owner = msg.sender;
@@ -53,11 +52,11 @@ contract BridgeTokenTest is Test {
         Proxy _remoteProxy = new Proxy(address(new BridgeProxy()), proxyAdmin, new bytes(0));
         remoteProxy = BridgeProxy(address(_remoteProxy));
 
-        Proxy _localPool = new Proxy(address(new BridgePool()), proxyAdmin, new bytes(0));
-        localPool = BridgePool(address(_localPool));
+        Proxy _localController = new Proxy(address(new BridgeController()), proxyAdmin, new bytes(0));
+        localController = BridgeController(address(_localController));
 
-        Proxy _remotePool = new Proxy(address(new C2BridgePool()), proxyAdmin, new bytes(0));
-        remotePool = C2BridgePool(address(_remotePool));
+        Proxy _remoteController = new Proxy(address(new C2BridgeController()), proxyAdmin, new bytes(0));
+        remoteController = C2BridgeController(address(_remoteController));
 
         console.log("local Proxy", address(localProxy));
         console.log("remote Proxy", address(remoteProxy));
@@ -65,18 +64,18 @@ contract BridgeTokenTest is Test {
 
         /// Initialize
 
-        localPool.initialize(address(localToken), address(localProxy), validator);
-        remotePool.initialize(address(remoteToken), address(remoteProxy), validator, controller);
+        localController.initialize(address(localToken), address(localProxy), validator);
+        remoteController.initialize(address(remoteToken), address(remoteProxy), validator);
 
-        localProxy.initialize(address(localPool), address(localEndPoint));
-        remoteProxy.initialize(address(remotePool), address(remoteEndPoint));
+        localProxy.initialize(address(localController), address(localEndPoint));
+        remoteProxy.initialize(address(remoteController), address(remoteEndPoint));
 
         localProxy.setTrustedRemoteAddress(REMOTE_CHAIN_ID, abi.encodePacked(address(remoteProxy)));
         remoteProxy.setTrustedRemoteAddress(LOCAL_CHAIN_ID, abi.encodePacked(address(localProxy)));
 
         localEndPoint.setDestLzEndpoint(address(remoteProxy), address(remoteEndPoint));
         remoteEndPoint.setDestLzEndpoint(address(localProxy), address(localEndPoint));
-        remoteToken.setBridgePool(address(remotePool));
+        remoteToken.setBridgeController(address(remoteController));
         vm.stopPrank();
     }
 
@@ -91,111 +90,56 @@ contract BridgeTokenTest is Test {
         vm.deal(user1, 100 ether);
         vm.startPrank(user1);
 
-        (uint256 _nativeFee,) = localPool.estimateSendTokensFee(REMOTE_CHAIN_ID, user1, 100 ether);
+        (uint256 _nativeFee,) = localController.estimateSendTokensFee(REMOTE_CHAIN_ID, user1, 100 ether);
 
-        localToken.approve(address(localPool), 100 ether);
-        localPool.bridge{value: _nativeFee}(REMOTE_CHAIN_ID, user1, 100 ether);
+        localToken.approve(address(localController), 100 ether);
+        localController.bridge{value: _nativeFee}(REMOTE_CHAIN_ID, user1, 100 ether);
 
         vm.stopPrank();
 
         vm.startPrank(validator);
         (address _to, uint256 _amount) =
-            remotePool.creditQueue(LOCAL_CHAIN_ID, abi.encodePacked(address(localProxy), address(remoteProxy)), 1);
+            remoteController.creditQueue(LOCAL_CHAIN_ID, abi.encodePacked(address(localProxy), address(remoteProxy)), 1);
         console.log(_to, _amount);
-        remotePool.approveTransfer(LOCAL_CHAIN_ID, abi.encodePacked(address(localProxy), address(remoteProxy)), 1);
-        assertEq(remoteToken.balanceOf(address(remotePool)), 0);
+        remoteController.approveTransfer(LOCAL_CHAIN_ID, abi.encodePacked(address(localProxy), address(remoteProxy)), 1);
+        assertEq(remoteToken.balanceOf(address(remoteController)), 0);
         assertEq(remoteToken.balanceOf(user1), 100e18);
-        assertEq(localToken.balanceOf(address(localPool)), 100e18);
+        assertEq(localToken.balanceOf(address(localController)), 100e18);
 
         vm.stopPrank();
 
         // vm.startPrank(owner);
-        // remotePool.pauseSendTokens(true);
+        // remoteController.pauseSendTokens(true);
         // vm.stopPrank();
 
         // vm.startPrank(user1);
 
-        // (_nativeFee,) = localPool.estimateSendTokensFee(REMOTE_CHAIN_ID, user1, 100 ether);
+        // (_nativeFee,) = localController.estimateSendTokensFee(REMOTE_CHAIN_ID, user1, 100 ether);
 
-        // localToken.approve(address(localPool), 100 ether);
-        // localPool.bridge{value: _nativeFee}(REMOTE_CHAIN_ID, user1, 100 ether);
+        // localToken.approve(address(localController), 100 ether);
+        // localController.bridge{value: _nativeFee}(REMOTE_CHAIN_ID, user1, 100 ether);
 
         // vm.stopPrank();
 
         // REMOTE -> LOCAL
         vm.startPrank(user1);
 
-        (_nativeFee,) = remotePool.estimateSendTokensFee(LOCAL_CHAIN_ID, user1, 100 ether);
+        (_nativeFee,) = remoteController.estimateSendTokensFee(LOCAL_CHAIN_ID, user1, 100 ether);
 
-        remoteToken.approve(address(remotePool), 100 ether);
-        remotePool.bridge{value: _nativeFee}(LOCAL_CHAIN_ID, user1, 100 ether);
+        remoteToken.approve(address(remoteController), 100 ether);
+        remoteController.bridge{value: _nativeFee}(LOCAL_CHAIN_ID, user1, 100 ether);
         vm.stopPrank();
 
         vm.startPrank(validator);
         (_to, _amount) =
-            localPool.creditQueue(REMOTE_CHAIN_ID, abi.encodePacked(address(remoteProxy), address(localProxy)), 1);
+            localController.creditQueue(REMOTE_CHAIN_ID, abi.encodePacked(address(remoteProxy), address(localProxy)), 1);
         console.log(_to, _amount);
-        localPool.approveTransfer(REMOTE_CHAIN_ID, abi.encodePacked(address(remoteProxy), address(localProxy)), 1);
-        assertEq(remoteToken.balanceOf(address(remotePool)), 0);
+        localController.approveTransfer(REMOTE_CHAIN_ID, abi.encodePacked(address(remoteProxy), address(localProxy)), 1);
+        assertEq(remoteToken.balanceOf(address(remoteController)), 0);
         assertEq(remoteToken.balanceOf(user1), 0);
-        assertEq(localToken.balanceOf(address(localPool)), 0);
+        assertEq(localToken.balanceOf(address(localController)), 0);
         assertEq(localToken.balanceOf(user1), 100_000e18);
 
-        vm.stopPrank();
-    }
-
-    function testBurn() public {
-        vm.warp(1);
-        vm.mockCall(
-            address(remotePool), abi.encodeWithSelector(remotePool.MAIN_CHAIN_ID.selector), abi.encode(LOCAL_CHAIN_ID)
-        );
-        console.log("Main", remotePool.MAIN_CHAIN_ID());
-        // LOCAL -> REMOTE
-        vm.startPrank(owner);
-        localToken.transfer(user1, 100_000e18);
-
-        vm.stopPrank();
-
-        vm.deal(user1, 100 ether);
-        vm.deal(controller, 100 ether);
-        vm.startPrank(user1);
-
-        (uint256 _nativeFee,) = localPool.estimateSendTokensFee(REMOTE_CHAIN_ID, user1, 100 ether);
-
-        localToken.approve(address(localPool), 100 ether);
-        localPool.bridge{value: _nativeFee}(REMOTE_CHAIN_ID, user1, 100 ether);
-
-        vm.stopPrank();
-
-        vm.startPrank(validator);
-        (address _to, uint256 _amount) =
-            remotePool.creditQueue(LOCAL_CHAIN_ID, abi.encodePacked(address(localProxy), address(remoteProxy)), 1);
-        console.log(_to, _amount);
-        remotePool.approveTransfer(LOCAL_CHAIN_ID, abi.encodePacked(address(localProxy), address(remoteProxy)), 1);
-        assertEq(remoteToken.balanceOf(address(remotePool)), 0);
-        assertEq(remoteToken.balanceOf(user1), 100e18);
-        assertEq(localToken.balanceOf(address(localPool)), 100e18);
-
-        vm.stopPrank();
-
-        vm.startPrank(user1);
-        remoteToken.burn(100e18);
-
-        assertEq(remoteToken.burnDebtAmount(), 100e18);
-        vm.stopPrank();
-
-        vm.startPrank(controller);
-        (_nativeFee,) = remotePool.estimateBurnFee();
-        remotePool.burn{value: _nativeFee}();
-        assertEq(remoteToken.burnDebtAmount(), 0);
-        vm.stopPrank();
-
-        vm.startPrank(validator);
-        localPool.approveBurn(REMOTE_CHAIN_ID, abi.encodePacked(address(remoteProxy), address(localProxy)), 1);
-        assertEq(localToken.balanceOf(address(localPool)), 0);
-        assertEq(
-            localPool.burnQueue(REMOTE_CHAIN_ID, abi.encodePacked(address(remoteProxy), address(localProxy)), 1), 0
-        );
         vm.stopPrank();
     }
 }
