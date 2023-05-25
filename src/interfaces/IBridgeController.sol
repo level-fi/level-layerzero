@@ -10,6 +10,4 @@ struct CreditInfo {
 interface IBridgeController {
     function addCreditInfo(uint16 _srcChainId, bytes memory _srcAddress, uint64 _nonce, address _to, uint256 _amount)
         external;
-
-    function addBurnInfo(uint16 _srcChainId, bytes memory _srcAddress, uint64 _nonce, uint256 _amount) external;
 }
