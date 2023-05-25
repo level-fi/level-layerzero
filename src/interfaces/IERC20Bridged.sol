@@ -9,7 +9,7 @@ interface IERC20Bridged {
 
     function resetDebtAmountBurned() external;
 
-    function bridgeRouter() external view returns (address);
+    function bridgePool() external view returns (address);
 
     function burnDebtAmount() external view returns (uint256);
 }

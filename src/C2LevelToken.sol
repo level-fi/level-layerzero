@@ -8,29 +8,29 @@ import {Ownable} from "openzeppelin/access/Ownable.sol";
 import {IERC20Bridged} from "./interfaces/IERC20Bridged.sol";
 
 contract C2LevelToken is ERC20Burnable, Ownable, IERC20Bridged {
-    address public bridgeRouter;
+    address public bridgePool;
     /// @notice number of tokens wait to be burned on original chain. Add up when user request to burn an amount of tokens
     /// reset when burn message sent to original chain
     uint256 public burnDebtAmount;
 
-    modifier onlyRouter() {
-        require(msg.sender == bridgeRouter, "!Router");
+    modifier onlyPool() {
+        require(msg.sender == bridgePool, "!Pool");
         _;
     }
 
     constructor() ERC20("Level Token", "LVL") {}
 
-    function bridgeMint(address _to, uint256 _amount) external onlyRouter {
+    function bridgeMint(address _to, uint256 _amount) external onlyPool {
         _mint(_to, _amount);
         emit BridgeMinted(_to, _amount);
     }
 
-    function bridgeBurn(address _to, uint256 _amount) external onlyRouter {
+    function bridgeBurn(address _to, uint256 _amount) external onlyPool {
         super.burnFrom(_to, _amount);
         emit BridgeBurnt(_to, _amount);
     }
 
-    function resetDebtAmountBurned() external onlyRouter {
+    function resetDebtAmountBurned() external onlyPool {
         burnDebtAmount = 0;
         emit BurnDebtAmountReset();
     }
@@ -45,13 +45,13 @@ contract C2LevelToken is ERC20Burnable, Ownable, IERC20Bridged {
         super.burnFrom(_account, _amount);
     }
 
-    function setBridgeRouter(address _router) external onlyOwner {
-        require(_router != address(0));
-        bridgeRouter = _router;
-        emit BridgeRouterSet(_router);
+    function setBridgePool(address _pool) external onlyOwner {
+        require(_pool != address(0));
+        bridgePool = _pool;
+        emit BridgePoolSet(_pool);
     }
 
-    event BridgeRouterSet(address _router);
+    event BridgePoolSet(address _pool);
     event BridgeMinted(address _to, uint256 _amount);
     event BridgeBurnt(address _to, uint256 _amount);
     event BurnDebtAmountReset();

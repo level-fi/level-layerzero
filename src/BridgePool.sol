@@ -8,11 +8,11 @@ import {ReentrancyGuardUpgradeable} from "openzeppelin-contracts-upgradeable/sec
 import {Initializable} from "openzeppelin-contracts-upgradeable/proxy/utils/Initializable.sol";
 import {OwnableUpgradeable} from "openzeppelin-contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {PausableUpgradeable} from "openzeppelin-contracts-upgradeable/security/PausableUpgradeable.sol";
-import {CreditInfo} from "./interfaces/IBridgeRouter.sol";
+import {CreditInfo} from "./interfaces/IBridgePool.sol";
 import {IBridgeProxy} from "./interfaces/IBridgeProxy.sol";
 import {IERC20Burnable} from "./interfaces/IERC20Burnable.sol";
 
-contract BridgeRouter is Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable {
+contract BridgePool is Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable {
     using SafeERC20 for IERC20;
 
     uint256 public constant MAX_AMOUNT_BRIDGE = 5_000_000e18;

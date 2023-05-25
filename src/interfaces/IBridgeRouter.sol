@@ -7,7 +7,7 @@ struct CreditInfo {
     uint256 amount;
 }
 
-interface IBridgeRouter {
+interface IBridgePool {
     function addCreditInfo(uint16 _srcChainId, bytes memory _srcAddress, uint64 _nonce, address _to, uint256 _amount)
         external;
 
