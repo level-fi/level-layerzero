@@ -75,7 +75,7 @@ contract C2BridgeController is Initializable, OwnableUpgradeable, ReentrancyGuar
         require(_receiveInfo.amount > 0 && _receiveInfo.to != address(0), "Not exists");
 
         delete creditQueue[_srcChainId][_srcAddress][_nonce];
-        token.bridgeMint(_receiveInfo.to, _receiveInfo.amount);
+        token.mint(_receiveInfo.to, _receiveInfo.amount);
         emit Approved(_srcChainId, _srcAddress, _nonce, _receiveInfo.to, _receiveInfo.amount);
     }
     /*================= BRIDGE ===============*/

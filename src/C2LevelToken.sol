@@ -16,9 +16,9 @@ contract C2LevelToken is ERC20Burnable, Ownable {
 
     constructor() ERC20("Level Token", "LVL") {}
 
-    function bridgeMint(address _to, uint256 _amount) external onlyController {
+    function mint(address _to, uint256 _amount) external onlyController {
         _mint(_to, _amount);
-        emit BridgeMinted(_to, _amount);
+        emit Minted(_to, _amount);
     }
 
     function setBridgeController(address _controller) external onlyOwner {
@@ -28,5 +28,5 @@ contract C2LevelToken is ERC20Burnable, Ownable {
     }
 
     event BridgeControllerSet(address _controller);
-    event BridgeMinted(address _to, uint256 _amount);
+    event Minted(address _to, uint256 _amount);
 }
