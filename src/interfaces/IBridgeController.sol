@@ -18,7 +18,7 @@ interface IBridgeController {
 
     /*=============== EVENTS =====================*/
     event Approved(uint16 _srcChainId, bytes _srcAddress, uint64 _nonce, address _to, uint256 _amount);
-    event Bridge(address _to, uint256 _amount, address _refundAddress, uint64 _nonce);
+    event Bridge(address _to, uint256 _amount, address _refundAddress, uint64 _nonce, uint16 _dstChainId);
     event CreditInfoAddedToQueue(uint16 _srcChainId, bytes _srcAddress, uint64 _nonce, address _to, uint256 _amount);
     event ValidatorSet(address _validator);
 }

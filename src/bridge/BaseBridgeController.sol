@@ -20,9 +20,8 @@ abstract contract BaseBridgeController is
     address public token;
     IBridgeProxy public bridgeProxy;
 
-    mapping(uint16 dstChain => mapping(address proxy =>  mapping(uint64 nonce => DebitInfo))) public debitInfo;
+    mapping(uint16 dstChain => mapping(address proxy => mapping(uint64 nonce => DebitInfo))) public debitInfo;
     mapping(uint16 srcChain => mapping(bytes srcAddr => mapping(uint64 nonce => CreditInfo))) public creditQueue;
-
 
     modifier onlyBridgeProxy() {
         require(msg.sender == address(bridgeProxy), "!Bridge Proxy");
@@ -57,13 +56,14 @@ abstract contract BaseBridgeController is
     function bridge(uint16 _dstChainId, address _to, uint256 _amount) external payable nonReentrant whenNotPaused {
         require(_to != address(0), "Invalid address");
 
-        uint64 _nonce = bridgeProxy.sendTokens{value: msg.value}(_dstChainId, abi.encodePacked(_to), _amount, payable(msg.sender), address(0), new bytes(0));
+        uint64 _nonce = bridgeProxy.sendTokens{value: msg.value}(
+            _dstChainId, abi.encodePacked(_to), _amount, payable(msg.sender), address(0), new bytes(0)
+        );
         debitInfo[_dstChainId][address(bridgeProxy)][_nonce] = DebitInfo({to: _to, amount: _amount});
         _collectTokens(msg.sender, _amount);
-        
-        emit Bridge(_to, _amount, msg.sender, _nonce);
-    }
 
+        emit Bridge(_to, _amount, msg.sender, _nonce, _dstChainId);
+    }
 
     /// @notice approve received CreditInfo, by authorized validator only
     /// @param _srcChainId chain id defined by layerzero
@@ -114,5 +114,4 @@ abstract contract BaseBridgeController is
 
     function _collectTokens(address _sender, uint256 _amount) internal virtual;
     function _releaseTokens(address _to, uint256 _amount) internal virtual;
-
 }
