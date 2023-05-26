@@ -9,17 +9,14 @@ import {Initializable} from "openzeppelin-contracts-upgradeable/proxy/utils/Init
 import {OwnableUpgradeable} from "openzeppelin-contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {PausableUpgradeable} from "openzeppelin-contracts-upgradeable/security/PausableUpgradeable.sol";
 import {CreditInfo} from "./interfaces/IBridgeController.sol";
-import {IBridgeProxy} from "./interfaces/IBridgeProxy.sol";
-import {IERC20Burnable} from "./interfaces/IERC20Burnable.sol";
+import "./interfaces/IBridgeProxy.sol";
 
 contract BridgeController is Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable {
-
     using SafeERC20 for IERC20;
 
-    uint256 public constant MAX_AMOUNT_BRIDGE = 5_000_000e18;
-    uint256 public constant MIN_AMOUNT_BRIDGE = 50e18;
-
     address public validator;
+    bool public mintPaused;
+
     IERC20 public token;
     IBridgeProxy public bridgeProxy;
 
@@ -57,12 +54,13 @@ contract BridgeController is Initializable, OwnableUpgradeable, ReentrancyGuardU
     }
 
     /*================ MULTITATIVE ======================= */
-    /// @param _dstChainId destination chain ID, defined by layerzero
-    /// @param _to where to deliver the tokens on the destination chain
-    /// @param _amount number of tokens to send
-    function bridge(uint16 _dstChainId, address _to, uint256 _amount) external payable nonReentrant whenNotPaused {
+
+    function bridge(
+        uint16 _dstChainId,
+        address _to, // where to deliver the tokens on the destination chain
+        uint256 _amount // how many tokens to send
+    ) external payable nonReentrant whenNotPaused{
         require(_to != address(0), "Invalid address");
-        require(_amount >= MIN_AMOUNT_BRIDGE && _amount <= MAX_AMOUNT_BRIDGE, "Invalid amount");
 
         token.safeTransferFrom(msg.sender, address(this), _amount);
         bridgeProxy.sendTokens{value: msg.value}(
@@ -71,14 +69,15 @@ contract BridgeController is Initializable, OwnableUpgradeable, ReentrancyGuardU
         emit Bridge(_to, _amount, msg.sender);
     }
 
-    function approveTransfer(uint16 _srcChainId, bytes calldata _srcAddress, uint64 _nonce) external nonReentrant {
+     function approveTransfer(uint16 _srcChainId, bytes calldata _srcAddress, uint64 _nonce, address _to, uint256 _amount) external nonReentrant {
+        require(!mintPaused, "Paused");
         require(msg.sender == validator, "!Validator");
-        CreditInfo memory _receiveInfo = creditQueue[_srcChainId][_srcAddress][_nonce];
-        require(_receiveInfo.amount > 0 && _receiveInfo.to != address(0), "Not exists");
+        CreditInfo memory _creditInfo = creditQueue[_srcChainId][_srcAddress][_nonce];
+        require(!_creditInfo.approved && _creditInfo.amount == _amount && _creditInfo.to == _to, "Not exists");
 
-        delete creditQueue[_srcChainId][_srcAddress][_nonce];
-        token.safeTransfer(_receiveInfo.to, _receiveInfo.amount);
-        emit Approved(_srcChainId, _srcAddress, _nonce, _receiveInfo.to, _receiveInfo.amount);
+        creditQueue[_srcChainId][_srcAddress][_nonce].approved = true;
+        token.safeTransfer(_creditInfo.to, _creditInfo.amount);
+        emit Approved(_srcChainId, _srcAddress, _nonce, _creditInfo.to, _creditInfo.amount);
     }
 
     /*================= BRIDGE ===============*/
@@ -87,17 +86,25 @@ contract BridgeController is Initializable, OwnableUpgradeable, ReentrancyGuardU
         onlyBridgeProxy
     {
         require(creditQueue[_srcChainId][_srcAddress][_nonce].to == address(0), "Key exists");
-        creditQueue[_srcChainId][_srcAddress][_nonce] = CreditInfo({to: _to, amount: _amount});
+        creditQueue[_srcChainId][_srcAddress][_nonce] = CreditInfo({to: _to, amount: _amount, approved: false});
         emit CreditInfoAddedToQueue(_srcChainId, _srcAddress, _nonce, _to, _amount);
     }
 
-    /*================== ADMIN =================*/
+        /*================== ADMIN =================*/
     function pauseSendTokens() external onlyOwner {
         _pause();
     }
 
     function unpauseSendTokens() external onlyOwner {
         _unpause();
+    }
+
+    function pauseMintTokens() external onlyOwner {
+       mintPaused = true;
+    }
+
+    function unpauseMintTokens() external onlyOwner {
+        mintPaused = false;
     }
 
     /*=============== EVENTS =====================*/

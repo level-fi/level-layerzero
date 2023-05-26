@@ -3,8 +3,9 @@
 pragma solidity 0.8.18;
 
 struct CreditInfo {
-    address to;
     uint256 amount;
+    address to;
+    bool approved;
 }
 
 interface IBridgeController {

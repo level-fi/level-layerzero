@@ -2,11 +2,11 @@
 
 pragma solidity 0.8.18;
 
-import {ERC20Burnable} from "openzeppelin/token/ERC20/extensions/ERC20Burnable.sol";
-import {ERC20} from "openzeppelin/token/ERC20/ERC20.sol";
-import {Ownable} from "openzeppelin/access/Ownable.sol";
+import {ERC20Upgradeable} from "openzeppelin-contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import {Initializable} from "openzeppelin-contracts-upgradeable/proxy/utils/Initializable.sol";
+import {OwnableUpgradeable} from "openzeppelin-contracts-upgradeable/access/OwnableUpgradeable.sol";
 
-contract C2LevelToken is ERC20Burnable, Ownable {
+contract C2LevelToken is Initializable, ERC20Upgradeable, OwnableUpgradeable {
     address public bridgeController;
 
     modifier onlyController() {
@@ -14,11 +14,29 @@ contract C2LevelToken is ERC20Burnable, Ownable {
         _;
     }
 
-    constructor() ERC20("Level Token", "LVL") {}
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(address _controller) external initializer {
+        require(_controller != address(0));
+        __Ownable_init();
+        __ERC20_init("Level Token", "LVL");
+        bridgeController = _controller;
+    }
 
     function mint(address _to, uint256 _amount) external onlyController {
         _mint(_to, _amount);
         emit Minted(_to, _amount);
+    }
+
+    function burn(uint256 amount) external {
+        _burn(_msgSender(), amount);
+    }
+
+    function burnFrom(address account, uint256 amount) external {
+        _spendAllowance(account, _msgSender(), amount);
+        _burn(account, amount);
     }
 
     function setBridgeController(address _controller) external onlyOwner {
