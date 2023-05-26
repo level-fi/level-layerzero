@@ -2,21 +2,25 @@
 
 pragma solidity 0.8.18;
 
+
 import {Initializable} from "openzeppelin-contracts-upgradeable/proxy/utils/Initializable.sol";
 import "./layerzero/lzApp/NonblockingLzAppUpgradeable.sol";
-import "./interfaces/IBridgePool.sol";
+import "./interfaces/IBridgeController.sol";
+import {DebitInfo} from "./interfaces/IBridgeProxy.sol";
 
 contract BridgeProxy is Initializable, NonblockingLzAppUpgradeable {
+
+    using BytesLib for bytes;
     /*==================== VARIABLES ==================== */
 
     // packet type
     uint16 public constant PT_SEND = 0;
-    uint16 public constant PT_BURN = 1;
 
-    address public pool;
+    address public controller;
+    mapping(uint16 dstChain => mapping(bytes srcAddr => mapping(uint64 nonce => DebitInfo))) public debitInfo;
 
-    modifier onlyPool() {
-        require(msg.sender == pool, "!Pool");
+    modifier onlyController() {
+        require(msg.sender == controller, "!Controller");
         _;
     }
 
@@ -24,11 +28,11 @@ contract BridgeProxy is Initializable, NonblockingLzAppUpgradeable {
         _disableInitializers();
     }
 
-    function initialize(address _pool, address _endpoint) external initializer {
-        require(_pool != address(0), "Invalid address");
+    function initialize(address _controller, address _endpoint) external initializer {
+        require(_controller != address(0), "Invalid address");
         require(_endpoint != address(0), "Invalid address");
         __NonblockingLzAppUpgradeable_init(_endpoint);
-        pool = _pool;
+        controller = _controller;
     }
 
     /*=========================== VIEWS =============================== */
@@ -44,14 +48,6 @@ contract BridgeProxy is Initializable, NonblockingLzAppUpgradeable {
         return lzEndpoint.estimateFees(_dstChainId, address(this), _payload, _useZro, _adapterParams);
     }
 
-    function estimateBurnFee(uint16 _dstChainId, uint256 _amount, bool _useZro, bytes calldata _adapterParams)
-        external
-        view
-        returns (uint256, uint256)
-    {
-        bytes memory _payload = abi.encode(PT_BURN, _amount);
-        return lzEndpoint.estimateFees(_dstChainId, address(this), _payload, _useZro, _adapterParams);
-    }
     /*========================= SEND MESSAGE ==================== */
 
     function sendTokens(
@@ -61,26 +57,21 @@ contract BridgeProxy is Initializable, NonblockingLzAppUpgradeable {
         address payable _refundAddress,
         address _zroPaymentAddress,
         bytes calldata _adapterParam
-    ) external payable onlyPool {
+    ) external payable onlyController {
         require(_amount > 0, "Amount = 0");
         bytes memory _payload = abi.encode(PT_SEND, _to, _amount);
         _lzSend(_dstChainId, _payload, _refundAddress, _zroPaymentAddress, _adapterParam, msg.value);
+        bytes memory _path = trustedRemoteLookup[_dstChainId];
+        require(_path.length != 0, "No trusted path record");
+        bytes memory _remoteProxy = _path.slice(0, _path.length - 20);
+        bytes memory _srcAddress = abi.encodePacked(address(this), _remoteProxy);
         uint64 _nonce = lzEndpoint.getOutboundNonce(_dstChainId, address(this));
-        emit SendToChain(_dstChainId, _to, _amount, _nonce);
-    }
 
-    function burnTokens(
-        uint16 _dstChainId,
-        uint256 _amount,
-        address payable _refundAddress,
-        address _zroPaymentAddress,
-        bytes calldata _adapterParam
-    ) external payable onlyPool {
-        require(_amount > 0, "Amount = 0");
-        bytes memory _payload = abi.encode(PT_BURN, _amount);
-        _lzSend(_dstChainId, _payload, _refundAddress, _zroPaymentAddress, _adapterParam, msg.value);
-        uint64 _nonce = lzEndpoint.getOutboundNonce(_dstChainId, address(this));
-        emit BurnToChain(_dstChainId, _amount, _nonce);
+        debitInfo[_dstChainId][_srcAddress][_nonce] = DebitInfo({
+            to: _to,
+            amount: _amount
+        });
+        emit SendToChain(_dstChainId,_srcAddress, _to, _amount, _nonce);
     }
 
     /*=========================== INTERNALS ========================*/
@@ -100,20 +91,14 @@ contract BridgeProxy is Initializable, NonblockingLzAppUpgradeable {
                 _toAddress := mload(add(_to, 20))
             }
 
-            IBridgePool(pool).addCreditInfo(_srcChainId, _srcAddress, _nonce, _toAddress, _amount);
+            IBridgeController(controller).addCreditInfo(_srcChainId, _srcAddress, _nonce, _toAddress, _amount);
             emit ReceiveFromChain(_srcChainId, _srcAddress, _nonce, _toAddress, _amount);
-        } else if (_packetType == PT_BURN) {
-            (, uint256 _amount) = abi.decode(_payload, (uint16, uint256));
-            IBridgePool(pool).addBurnInfo(_srcChainId, _srcAddress, _nonce, _amount);
-            emit BurnFromChain(_srcChainId, _srcAddress, _nonce, _amount);
         } else {
             revert("Unknown packet type");
         }
     }
     /*=========================== EVENTS ========================*/
 
-    event SendToChain(uint16 _dstChainId, bytes _to, uint256 _amount, uint64 _nonce);
+    event SendToChain(uint16 _dstChainId, bytes _srcAddress, bytes _to, uint256 _amount, uint64 _nonce);
     event ReceiveFromChain(uint16 _srcChainId, bytes _srcAddress, uint64 _nonce, address _to, uint256 _amount);
-    event BurnFromChain(uint16 _srcChainId, bytes _srcAddress, uint64 _nonce, uint256 _amount);
-    event BurnToChain(uint16 _dstChainId, uint256 _amount, uint64 _nonce);
 }
