@@ -100,13 +100,7 @@ contract BridgeTokenTest is Test {
         localToken.approve(address(localRouter), 100 ether);
         localRouter.bridge{value: _nativeFee}(REMOTE_CHAIN_ID, user1, 100 ether);
 
-        (uint256 _damount, bytes memory _dto) = localProxy.debitInfo(LOCAL_CHAIN_ID, 1);
-
-        console.logBytes(abi.encodePacked(address(localProxy), address(remoteProxy)));
-        address _toAddress;
-        assembly {
-            _toAddress := mload(add(_dto, 20))
-        }
+        (uint256 _damount, address _toAddress) = localRouter.debitInfo(LOCAL_CHAIN_ID, address(remoteProxy), 1);
 
         console.log(_toAddress, _damount);
 

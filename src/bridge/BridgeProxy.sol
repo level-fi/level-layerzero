@@ -5,7 +5,7 @@ pragma solidity 0.8.18;
 import {Initializable} from "openzeppelin-contracts-upgradeable/proxy/utils/Initializable.sol";
 import "../layerzero/lzApp/NonblockingLzAppUpgradeable.sol";
 import "../interfaces/IBridgeController.sol";
-import {IBridgeProxy, DebitInfo} from "../interfaces/IBridgeProxy.sol";
+import {IBridgeProxy} from "../interfaces/IBridgeProxy.sol";
 
 contract BridgeProxy is Initializable, NonblockingLzAppUpgradeable, IBridgeProxy {
     using BytesLib for bytes;
@@ -15,7 +15,6 @@ contract BridgeProxy is Initializable, NonblockingLzAppUpgradeable, IBridgeProxy
     uint16 public constant PT_SEND = 0;
 
     address public controller;
-    mapping(uint16 dstChain => mapping(uint64 nonce => DebitInfo)) public debitInfo;
 
     modifier onlyController() {
         require(msg.sender == controller, "!Controller");
@@ -55,15 +54,13 @@ contract BridgeProxy is Initializable, NonblockingLzAppUpgradeable, IBridgeProxy
         address payable _refundAddress,
         address _zroPaymentAddress,
         bytes calldata _adapterParam
-    ) external payable onlyController {
+    ) external payable onlyController returns (uint64 _nonce) {
         require(_amount > 0, "Amount = 0");
         bytes memory _payload = abi.encode(PT_SEND, _to, _amount);
         _lzSend(_dstChainId, _payload, _refundAddress, _zroPaymentAddress, _adapterParam, msg.value);
 
         // collect nonce of just sent message
-        uint64 _nonce = lzEndpoint.getOutboundNonce(_dstChainId, address(this));
-
-        debitInfo[_dstChainId][_nonce] = DebitInfo({to: _to, amount: _amount});
+        _nonce = lzEndpoint.getOutboundNonce(_dstChainId, address(this));
         emit SendToChain(_dstChainId, _to, _amount, _nonce);
     }
 
@@ -81,7 +78,7 @@ contract BridgeProxy is Initializable, NonblockingLzAppUpgradeable, IBridgeProxy
                 _toAddress := mload(add(_to, 20))
             }
 
-            IBridgeController(controller).addCreditInfo(_srcChainId, _srcAddress, _nonce, _toAddress, _amount);
+            IBridgeController(controller).receiveCreditInfo(_srcChainId, _srcAddress, _nonce, _toAddress, _amount);
             emit ReceiveFromChain(_srcChainId, _srcAddress, _nonce, _toAddress, _amount);
         } else {
             revert("Unknown packet type");
