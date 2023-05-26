@@ -2,11 +2,6 @@
 
 pragma solidity 0.8.18;
 
-struct DebitInfo {
-    uint256 amount;
-    bytes to;
-}
-
 interface IBridgeProxy {
     function estimateSendTokensFee(
         uint16 _srcChainId,
@@ -23,7 +18,7 @@ interface IBridgeProxy {
         address payable _refundAddress,
         address _zroPaymentAddress,
         bytes calldata _adapterParam
-    ) external payable;
+    ) external payable returns (uint64 _nonce);
 
     /*=========================== EVENTS ========================*/
 

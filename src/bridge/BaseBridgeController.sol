@@ -6,7 +6,7 @@ import {ReentrancyGuardUpgradeable} from "openzeppelin-contracts-upgradeable/sec
 import {Initializable} from "openzeppelin-contracts-upgradeable/proxy/utils/Initializable.sol";
 import {OwnableUpgradeable} from "openzeppelin-contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {PausableUpgradeable} from "openzeppelin-contracts-upgradeable/security/PausableUpgradeable.sol";
-import {IBridgeController, CreditInfo} from "../interfaces/IBridgeController.sol";
+import {IBridgeController, CreditInfo, DebitInfo} from "../interfaces/IBridgeController.sol";
 import {IBridgeProxy} from "../interfaces/IBridgeProxy.sol";
 
 abstract contract BaseBridgeController is
@@ -17,12 +17,12 @@ abstract contract BaseBridgeController is
     IBridgeController
 {
     address public validator;
-    bool public mintPaused;
-
     address public token;
     IBridgeProxy public bridgeProxy;
 
+    mapping(uint16 dstChain => mapping(address proxy =>  mapping(uint64 nonce => DebitInfo))) public debitInfo;
     mapping(uint16 srcChain => mapping(bytes srcAddr => mapping(uint64 nonce => CreditInfo))) public creditQueue;
+
 
     modifier onlyBridgeProxy() {
         require(msg.sender == address(bridgeProxy), "!Bridge Proxy");
@@ -57,12 +57,13 @@ abstract contract BaseBridgeController is
     function bridge(uint16 _dstChainId, address _to, uint256 _amount) external payable nonReentrant whenNotPaused {
         require(_to != address(0), "Invalid address");
 
+        uint64 _nonce = bridgeProxy.sendTokens{value: msg.value}(_dstChainId, abi.encodePacked(_to), _amount, payable(msg.sender), address(0), new bytes(0));
+        debitInfo[_dstChainId][address(bridgeProxy)][_nonce] = DebitInfo({to: _to, amount: _amount});
         _collectTokens(msg.sender, _amount);
-        bridgeProxy.sendTokens{value: msg.value}(_dstChainId, abi.encodePacked(_to), _amount, payable(msg.sender), address(0), new bytes(0));
-        emit Bridge(_to, _amount, msg.sender);
+        
+        emit Bridge(_to, _amount, msg.sender, _nonce);
     }
 
-    function _collectTokens(address _sender, uint256 _amount) internal virtual;
 
     /// @notice approve received CreditInfo, by authorized validator only
     /// @param _srcChainId chain id defined by layerzero
@@ -74,7 +75,6 @@ abstract contract BaseBridgeController is
         external
         nonReentrant
     {
-        require(!mintPaused, "Paused");
         require(msg.sender == validator, "!Validator");
         CreditInfo memory _creditInfo = creditQueue[_srcChainId][_srcAddress][_nonce];
         require(!_creditInfo.approved && _creditInfo.amount == _amount && _creditInfo.to == _to, "Not exists");
@@ -84,11 +84,9 @@ abstract contract BaseBridgeController is
         emit Approved(_srcChainId, _srcAddress, _nonce, _creditInfo.to, _creditInfo.amount);
     }
 
-    function _releaseTokens(address _to, uint256 _amount) internal virtual;
-
     /*================= BRIDGE ===============*/
 
-    function addCreditInfo(uint16 _srcChainId, bytes memory _srcAddress, uint64 _nonce, address _to, uint256 _amount)
+    function receiveCreditInfo(uint16 _srcChainId, bytes memory _srcAddress, uint64 _nonce, address _to, uint256 _amount)
         external
         onlyBridgeProxy
     {
@@ -111,4 +109,10 @@ abstract contract BaseBridgeController is
         validator = _validator;
         emit ValidatorSet(_validator);
     }
+
+    // INTERNALS
+
+    function _collectTokens(address _sender, uint256 _amount) internal virtual;
+    function _releaseTokens(address _to, uint256 _amount) internal virtual;
+
 }
