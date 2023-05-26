@@ -15,8 +15,8 @@ contract BridgeController is BaseBridgeController {
         _disableInitializers();
     }
 
-    function initialize(address _token, address _bridgeProxy, address _validator) external initializer {
-        __BaseBridgeController_initialize(_token, _bridgeProxy, _validator);
+    function initialize(address _token, address _bridgeProxy) external initializer {
+        __BaseBridgeController_initialize(_token, _bridgeProxy);
     }
 
     function _collectTokens(address _sender, uint256 _amount) internal override {

@@ -66,8 +66,10 @@ contract BridgeTokenTest is Test {
 
         /// Initialize
 
-        localRouter.initialize(address(localToken), address(localProxy), validator);
-        remoteRouter.initialize(address(remoteToken), address(remoteProxy), validator);
+        localRouter.initialize(address(localToken), address(localProxy));
+        localRouter.setValidator(validator);
+        remoteRouter.initialize(address(remoteToken), address(remoteProxy));
+        remoteRouter.setValidator(validator);
 
         localProxy.initialize(address(localRouter), address(localEndPoint));
         remoteProxy.initialize(address(remoteRouter), address(remoteEndPoint));

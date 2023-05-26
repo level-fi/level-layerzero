@@ -33,16 +33,14 @@ abstract contract BaseBridgeController is
         _disableInitializers();
     }
 
-    function __BaseBridgeController_initialize(address _token, address _bridgeProxy, address _validator) internal {
+    function __BaseBridgeController_initialize(address _token, address _bridgeProxy) internal {
         require(_token != address(0), "Invalid address");
         require(_bridgeProxy != address(0), "Invalid address");
-        require(_validator != address(0), "Invalid address");
         __Ownable_init();
         __ReentrancyGuard_init();
         __Pausable_init();
         token = _token;
         bridgeProxy = IBridgeProxy(_bridgeProxy);
-        validator = _validator;
     }
 
     /*================= VIEWS ======================*/
@@ -106,5 +104,11 @@ abstract contract BaseBridgeController is
 
     function unpauseSendTokens() external onlyOwner {
         _unpause();
+    }
+
+    function setValidator(address _validator) external onlyOwner {
+        require(_validator != address(0), "Invalid address");
+        validator = _validator;
+        emit ValidatorSet(_validator);
     }
 }
