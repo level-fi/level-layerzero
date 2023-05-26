@@ -6,17 +6,22 @@ import {ReentrancyGuardUpgradeable} from "openzeppelin-contracts-upgradeable/sec
 import {Initializable} from "openzeppelin-contracts-upgradeable/proxy/utils/Initializable.sol";
 import {OwnableUpgradeable} from "openzeppelin-contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {PausableUpgradeable} from "openzeppelin-contracts-upgradeable/security/PausableUpgradeable.sol";
-import {CreditInfo} from "./interfaces/IBridgeController.sol";
-import "./interfaces/IBridgeProxy.sol";
-import "./interfaces/IERC20Bridged.sol";
+import {IBridgeController, CreditInfo} from "../interfaces/IBridgeController.sol";
+import {IBridgeProxy} from "../interfaces/IBridgeProxy.sol";
 
-contract C2BridgeController is Initializable, OwnableUpgradeable, ReentrancyGuardUpgradeable, PausableUpgradeable {
+abstract contract BaseBridgeController is
+    Initializable,
+    OwnableUpgradeable,
+    ReentrancyGuardUpgradeable,
+    PausableUpgradeable,
+    IBridgeController
+{
     address public validator;
     bool public mintPaused;
 
-    IERC20Bridged public token;
+    address public token;
     IBridgeProxy public bridgeProxy;
-    
+
     mapping(uint16 srcChain => mapping(bytes srcAddr => mapping(uint64 nonce => CreditInfo))) public creditQueue;
 
     modifier onlyBridgeProxy() {
@@ -28,57 +33,61 @@ contract C2BridgeController is Initializable, OwnableUpgradeable, ReentrancyGuar
         _disableInitializers();
     }
 
-    function initialize(address _token, address _bridgeProxy, address _validator)
-        external
-        initializer
-    {
+    function __BaseBridgeController_initialize(address _token, address _bridgeProxy, address _validator) internal {
         require(_token != address(0), "Invalid address");
         require(_bridgeProxy != address(0), "Invalid address");
         require(_validator != address(0), "Invalid address");
         __Ownable_init();
         __ReentrancyGuard_init();
         __Pausable_init();
-        token = IERC20Bridged(_token);
+        token = _token;
         bridgeProxy = IBridgeProxy(_bridgeProxy);
         validator = _validator;
     }
 
     /*================= VIEWS ======================*/
 
-    function estimateSendTokensFee(uint16 _dstChainId, address _to, uint256 _amount)
-        external
-        view
-        returns (uint256, uint256)
-    {
+    function estimateSendTokensFee(uint16 _dstChainId, address _to, uint256 _amount) external view returns (uint256, uint256) {
         return bridgeProxy.estimateSendTokensFee(_dstChainId, abi.encodePacked(_to), _amount, false, new bytes(0));
     }
 
-    /*================ MULTITATIVE ======================= */
-
-    function bridge(
-        uint16 _dstChainId,
-        address _to, // where to deliver the tokens on the destination chain
-        uint256 _amount // how many tokens to send
-    ) external payable nonReentrant whenNotPaused {
+    /*================ MULTATIVE ======================= */
+    /// @notice send token to destination chain
+    /// @param _dstChainId chain id defined by layerzero
+    /// @param _to receiver address
+    /// @param _amount how many token to send
+    function bridge(uint16 _dstChainId, address _to, uint256 _amount) external payable nonReentrant whenNotPaused {
         require(_to != address(0), "Invalid address");
-        
-        token.burnFrom(msg.sender, _amount);
-        bridgeProxy.sendTokens{value: msg.value}(
-            _dstChainId, abi.encodePacked(_to), _amount, payable(msg.sender), address(0), new bytes(0)
-        );
+
+        _collectTokens(msg.sender, _amount);
+        bridgeProxy.sendTokens{value: msg.value}(_dstChainId, abi.encodePacked(_to), _amount, payable(msg.sender), address(0), new bytes(0));
         emit Bridge(_to, _amount, msg.sender);
     }
 
-    function approveTransfer(uint16 _srcChainId, bytes calldata _srcAddress, uint64 _nonce, address _to, uint256 _amount) external nonReentrant {
+    function _collectTokens(address _sender, uint256 _amount) internal virtual;
+
+    /// @notice approve received CreditInfo, by authorized validator only
+    /// @param _srcChainId chain id defined by layerzero
+    /// @param _srcAddress address of the transfer path, combined from remote and local proxy address
+    /// @param _nonce the inbound nonce from endpoint
+    /// @param _to address of token receiver
+    /// @param _amount amount of token to be release
+    function approveTransfer(uint16 _srcChainId, bytes calldata _srcAddress, uint64 _nonce, address _to, uint256 _amount)
+        external
+        nonReentrant
+    {
         require(!mintPaused, "Paused");
         require(msg.sender == validator, "!Validator");
         CreditInfo memory _creditInfo = creditQueue[_srcChainId][_srcAddress][_nonce];
         require(!_creditInfo.approved && _creditInfo.amount == _amount && _creditInfo.to == _to, "Not exists");
 
         creditQueue[_srcChainId][_srcAddress][_nonce].approved = true;
-        token.mint(_creditInfo.to, _creditInfo.amount);
+        _releaseTokens(_creditInfo.to, _creditInfo.amount);
         emit Approved(_srcChainId, _srcAddress, _nonce, _creditInfo.to, _creditInfo.amount);
     }
+
+    function _releaseTokens(address _to, uint256 _amount) internal virtual;
+
     /*================= BRIDGE ===============*/
 
     function addCreditInfo(uint16 _srcChainId, bytes memory _srcAddress, uint64 _nonce, address _to, uint256 _amount)
@@ -90,7 +99,7 @@ contract C2BridgeController is Initializable, OwnableUpgradeable, ReentrancyGuar
         emit CreditInfoAddedToQueue(_srcChainId, _srcAddress, _nonce, _to, _amount);
     }
 
-     /*================== ADMIN =================*/
+    /*================== ADMIN =================*/
     function pauseSendTokens() external onlyOwner {
         _pause();
     }
@@ -98,18 +107,4 @@ contract C2BridgeController is Initializable, OwnableUpgradeable, ReentrancyGuar
     function unpauseSendTokens() external onlyOwner {
         _unpause();
     }
-
-    function pauseMintTokens() external onlyOwner {
-       mintPaused = true;
-    }
-
-    function unpauseMintTokens() external onlyOwner {
-        mintPaused = false;
-    }
-
-
-    /*=============== EVENTS =====================*/
-    event Approved(uint16 _srcChainId, bytes _srcAddress, uint64 _nonce, address _to, uint256 _amount);
-    event Bridge(address _to, uint256 _amount, address _refundAddress);
-    event CreditInfoAddedToQueue(uint16 _srcChainId, bytes _srcAddress, uint64 _nonce, address _to, uint256 _amount);
 }

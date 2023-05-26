@@ -2,14 +2,12 @@
 
 pragma solidity 0.8.18;
 
-
 import {Initializable} from "openzeppelin-contracts-upgradeable/proxy/utils/Initializable.sol";
-import "./layerzero/lzApp/NonblockingLzAppUpgradeable.sol";
-import "./interfaces/IBridgeController.sol";
-import {DebitInfo} from "./interfaces/IBridgeProxy.sol";
+import "../layerzero/lzApp/NonblockingLzAppUpgradeable.sol";
+import "../interfaces/IBridgeController.sol";
+import {IBridgeProxy, DebitInfo} from "../interfaces/IBridgeProxy.sol";
 
-contract BridgeProxy is Initializable, NonblockingLzAppUpgradeable {
-
+contract BridgeProxy is Initializable, NonblockingLzAppUpgradeable, IBridgeProxy {
     using BytesLib for bytes;
     /*==================== VARIABLES ==================== */
 
@@ -17,7 +15,7 @@ contract BridgeProxy is Initializable, NonblockingLzAppUpgradeable {
     uint16 public constant PT_SEND = 0;
 
     address public controller;
-    mapping(uint16 dstChain => mapping(bytes srcAddr => mapping(uint64 nonce => DebitInfo))) public debitInfo;
+    mapping(uint16 dstChain => mapping(uint64 nonce => DebitInfo)) public debitInfo;
 
     modifier onlyController() {
         require(msg.sender == controller, "!Controller");
@@ -61,24 +59,16 @@ contract BridgeProxy is Initializable, NonblockingLzAppUpgradeable {
         require(_amount > 0, "Amount = 0");
         bytes memory _payload = abi.encode(PT_SEND, _to, _amount);
         _lzSend(_dstChainId, _payload, _refundAddress, _zroPaymentAddress, _adapterParam, msg.value);
-        bytes memory _path = trustedRemoteLookup[_dstChainId];
-        require(_path.length != 0, "No trusted path record");
-        bytes memory _remoteProxy = _path.slice(0, _path.length - 20);
-        bytes memory _srcAddress = abi.encodePacked(address(this), _remoteProxy);
+
+        // collect nonce of just sent message
         uint64 _nonce = lzEndpoint.getOutboundNonce(_dstChainId, address(this));
 
-        debitInfo[_dstChainId][_srcAddress][_nonce] = DebitInfo({
-            to: _to,
-            amount: _amount
-        });
-        emit SendToChain(_dstChainId,_srcAddress, _to, _amount, _nonce);
+        debitInfo[_dstChainId][_nonce] = DebitInfo({to: _to, amount: _amount});
+        emit SendToChain(_dstChainId, _to, _amount, _nonce);
     }
 
     /*=========================== INTERNALS ========================*/
-    function _nonblockingLzReceive(uint16 _srcChainId, bytes memory _srcAddress, uint64 _nonce, bytes memory _payload)
-        internal
-        override
-    {
+    function _nonblockingLzReceive(uint16 _srcChainId, bytes memory _srcAddress, uint64 _nonce, bytes memory _payload) internal override {
         uint16 _packetType;
         assembly {
             _packetType := mload(add(_payload, 32))
@@ -97,8 +87,4 @@ contract BridgeProxy is Initializable, NonblockingLzAppUpgradeable {
             revert("Unknown packet type");
         }
     }
-    /*=========================== EVENTS ========================*/
-
-    event SendToChain(uint16 _dstChainId, bytes _srcAddress, bytes _to, uint256 _amount, uint64 _nonce);
-    event ReceiveFromChain(uint16 _srcChainId, bytes _srcAddress, uint64 _nonce, address _to, uint256 _amount);
 }

@@ -6,11 +6,11 @@ import "forge-std/Test.sol";
 import {TransparentUpgradeableProxy as Proxy} from "openzeppelin/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {ProxyAdmin} from "openzeppelin/proxy/transparent/ProxyAdmin.sol";
 import {LayerZeroEndpoint} from "./mocks/LayerZeroEndpoint.sol";
-import {C2LevelToken} from "../src/C2LevelToken.sol";
+import {C2LevelToken} from "../src/tokens/C2LevelToken.sol";
 import {LevelToken} from "../src/mocks/LevelToken.sol";
-import {BridgeProxy} from "../src/BridgeProxy.sol";
-import {BridgeController} from "../src/BridgeController.sol";
-import {C2BridgeController} from "../src/C2BridgeController.sol";
+import {BridgeProxy} from "../src/bridge/BridgeProxy.sol";
+import {BridgeController} from "../src/bridge/BridgeController.sol";
+import {C2BridgeController} from "../src/bridge/C2BridgeController.sol";
 
 contract BridgeTokenTest is Test {
     uint16 constant LOCAL_CHAIN_ID = 10102;
@@ -77,7 +77,8 @@ contract BridgeTokenTest is Test {
 
         localEndPoint.setDestLzEndpoint(address(remoteProxy), address(remoteEndPoint));
         remoteEndPoint.setDestLzEndpoint(address(localProxy), address(localEndPoint));
-        remoteToken.initialize(address(remoteRouter));
+        remoteToken.initialize();
+        remoteToken.setBridgeController(address(remoteRouter));
         vm.stopPrank();
     }
 
@@ -97,8 +98,7 @@ contract BridgeTokenTest is Test {
         localToken.approve(address(localRouter), 100 ether);
         localRouter.bridge{value: _nativeFee}(REMOTE_CHAIN_ID, user1, 100 ether);
 
-        (uint256 _damount, bytes memory _dto) =
-            localProxy.debitInfo(LOCAL_CHAIN_ID, abi.encodePacked(address(localProxy), address(remoteProxy)), 1);
+        (uint256 _damount, bytes memory _dto) = localProxy.debitInfo(LOCAL_CHAIN_ID, 1);
 
         console.logBytes(abi.encodePacked(address(localProxy), address(remoteProxy)));
         address _toAddress;
@@ -114,9 +114,7 @@ contract BridgeTokenTest is Test {
         (uint256 _amount, address _to,) =
             remoteRouter.creditQueue(LOCAL_CHAIN_ID, abi.encodePacked(address(localProxy), address(remoteProxy)), 1);
 
-        remoteRouter.approveTransfer(
-            LOCAL_CHAIN_ID, abi.encodePacked(address(localProxy), address(remoteProxy)), 1, user1, 100 ether
-        );
+        remoteRouter.approveTransfer(LOCAL_CHAIN_ID, abi.encodePacked(address(localProxy), address(remoteProxy)), 1, user1, 100 ether);
         assertEq(remoteToken.balanceOf(address(remoteRouter)), 0);
         assertEq(remoteToken.balanceOf(user1), 100e18);
         assertEq(localToken.balanceOf(address(localRouter)), 100e18);
@@ -146,12 +144,9 @@ contract BridgeTokenTest is Test {
         vm.stopPrank();
 
         vm.startPrank(validator);
-        (_amount, _to,) =
-            localRouter.creditQueue(REMOTE_CHAIN_ID, abi.encodePacked(address(remoteProxy), address(localProxy)), 1);
+        (_amount, _to,) = localRouter.creditQueue(REMOTE_CHAIN_ID, abi.encodePacked(address(remoteProxy), address(localProxy)), 1);
         console.log(_to, _amount);
-        localRouter.approveTransfer(
-            REMOTE_CHAIN_ID, abi.encodePacked(address(remoteProxy), address(localProxy)), 1, user1, 100 ether
-        );
+        localRouter.approveTransfer(REMOTE_CHAIN_ID, abi.encodePacked(address(remoteProxy), address(localProxy)), 1, user1, 100 ether);
         assertEq(remoteToken.balanceOf(address(remoteRouter)), 0);
         assertEq(remoteToken.balanceOf(user1), 0);
         assertEq(localToken.balanceOf(address(localRouter)), 0);

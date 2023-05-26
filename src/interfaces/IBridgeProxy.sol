@@ -24,4 +24,9 @@ interface IBridgeProxy {
         address _zroPaymentAddress,
         bytes calldata _adapterParam
     ) external payable;
+
+    /*=========================== EVENTS ========================*/
+
+    event SendToChain(uint16 _dstChainId, bytes _to, uint256 _amount, uint64 _nonce);
+    event ReceiveFromChain(uint16 _srcChainId, bytes _srcAddress, uint64 _nonce, address _to, uint256 _amount);
 }

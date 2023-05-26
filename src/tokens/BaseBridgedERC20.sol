@@ -3,29 +3,21 @@
 pragma solidity 0.8.18;
 
 import {ERC20Upgradeable} from "openzeppelin-contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import {Initializable} from "openzeppelin-contracts-upgradeable/proxy/utils/Initializable.sol";
 import {OwnableUpgradeable} from "openzeppelin-contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {PausableUpgradeable} from "openzeppelin-contracts-upgradeable/security/PausableUpgradeable.sol";
 
-contract C2LevelToken is Initializable, ERC20Upgradeable, OwnableUpgradeable {
+/// @notice Base contract for token bridged from original chain. Can only be minted from a bridge controller
+abstract contract BaseBridgedERC20 is OwnableUpgradeable, PausableUpgradeable, ERC20Upgradeable {
     address public bridgeController;
 
-    modifier onlyController() {
-        require(msg.sender == bridgeController, "!Controller");
-        _;
-    }
-
-    constructor() {
-        _disableInitializers();
-    }
-
-    function initialize(address _controller) external initializer {
-        require(_controller != address(0));
+    function __BaseBridgedERC20_init(string memory name_, string memory symbol_) internal {
         __Ownable_init();
-        __ERC20_init("Level Token", "LVL");
-        bridgeController = _controller;
+        __Pausable_init();
+        __ERC20_init(name_, symbol_);
     }
 
-    function mint(address _to, uint256 _amount) external onlyController {
+    function mint(address _to, uint256 _amount) external whenNotPaused {
+        require(msg.sender == bridgeController, "!minter");
         _mint(_to, _amount);
         emit Minted(_to, _amount);
     }
@@ -43,6 +35,14 @@ contract C2LevelToken is Initializable, ERC20Upgradeable, OwnableUpgradeable {
         require(_controller != address(0));
         bridgeController = _controller;
         emit BridgeControllerSet(_controller);
+    }
+
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    function unpause() external onlyOwner {
+        _unpause();
     }
 
     event BridgeControllerSet(address _controller);

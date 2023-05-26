@@ -9,4 +9,4 @@ verbosity = 2
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
 [fmt]
-line_length = 120
+line_length = 140

@@ -11,4 +11,3 @@ out/
 flatten
 script/simulate/*
 coverage/*
-lib/
