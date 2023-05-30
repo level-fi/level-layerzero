@@ -1,0 +1,12 @@
+# Deployments
+
+## BNB chain
+
+- LVLBridgeProxy: 0xe3197276dC213F62d49b0Ee77E61b6a927609eAe
+- LVLBridgeController: 0xC0717eb8ad66d0b3BF16Bbe0bAC0fb605a715A35
+
+## ArbitrumOne
+
+- LVLBridgeProxy: 0x0dF9e4182D6CA4CE655f1bEd19c0329002e46fD8
+- LVLBridgeController: 0x92a103971f1700B716B828E9FC0392E0ae2Eed14
+- LVL: 0xb64e280e9d1b5dbec4accedb2257a87b400db149
