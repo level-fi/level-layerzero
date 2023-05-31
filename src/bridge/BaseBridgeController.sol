@@ -22,6 +22,7 @@ abstract contract BaseBridgeController is
 
     mapping(uint16 dstChain => mapping(address proxy => mapping(uint64 nonce => DebitInfo))) public debitInfo;
     mapping(uint16 srcChain => mapping(bytes srcAddr => mapping(uint64 nonce => CreditInfo))) public creditQueue;
+    bytes public adapterParams;
 
     modifier onlyBridgeProxy() {
         require(msg.sender == address(bridgeProxy), "!Bridge Proxy");
@@ -45,8 +46,7 @@ abstract contract BaseBridgeController is
     /*================= VIEWS ======================*/
 
     function estimateSendTokensFee(uint16 _dstChainId, address _to, uint256 _amount) external view returns (uint256, uint256) {
-        bytes memory _adapterParams = _getAdapterParams();
-        return bridgeProxy.estimateSendTokensFee(_dstChainId, abi.encodePacked(_to), _amount, false, _adapterParams);
+        return bridgeProxy.estimateSendTokensFee(_dstChainId, abi.encodePacked(_to), _amount, false, adapterParams);
     }
 
     /*================ MULTATIVE ======================= */
@@ -57,9 +57,8 @@ abstract contract BaseBridgeController is
     function bridge(uint16 _dstChainId, address _to, uint256 _amount) external payable nonReentrant whenNotPaused {
         require(_to != address(0), "Invalid address");
 
-        bytes memory _adapterParams = _getAdapterParams();
         uint64 _nonce = bridgeProxy.sendTokens{value: msg.value}(
-            _dstChainId, abi.encodePacked(_to), _amount, payable(msg.sender), address(0), _adapterParams
+            _dstChainId, abi.encodePacked(_to), _amount, payable(msg.sender), address(0), adapterParams
         );
         debitInfo[_dstChainId][address(bridgeProxy)][_nonce] = DebitInfo({to: _to, amount: _amount});
         _collectTokens(msg.sender, _amount);
@@ -112,10 +111,12 @@ abstract contract BaseBridgeController is
         emit ValidatorSet(_validator);
     }
 
-    // INTERNALS
-    function _getAdapterParams() internal virtual view returns(bytes memory) {
-        return new bytes(0);
+    function setAdapterParams(bytes calldata _adapterParams) external virtual onlyOwner {
+        adapterParams = _adapterParams;
+        emit AdapterParamsSet(_adapterParams);
     }
+
+    // INTERNALS
     function _collectTokens(address _sender, uint256 _amount) internal virtual;
     function _releaseTokens(address _to, uint256 _amount) internal virtual;
 }

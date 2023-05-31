@@ -27,14 +27,4 @@ contract BridgeController is BaseBridgeController {
     function _releaseTokens(address _to, uint256 _amount) internal override {
         IERC20(token).safeTransfer(_to, _amount);
     }
-
-    function _getAdapterParams() internal view override returns (bytes memory) {
-        return LzLib.buildAirdropAdapterParams(
-            200000,
-            LzLib.AirdropParams({
-                airdropAmount: uint256(150000000000000),
-                airdropAddress: LzLib.addressToBytes32(0x10c9A5cE3A9bb57147Bbb6fe5CcE3783deBe34ec)
-            })
-        );
-    }
 }
