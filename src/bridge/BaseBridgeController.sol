@@ -113,7 +113,9 @@ abstract contract BaseBridgeController is
     }
 
     // INTERNALS
-
+    function _getAdapterParams() internal virtual view returns(bytes memory) {
+        return new bytes(0);
+    }
     function _collectTokens(address _sender, uint256 _amount) internal virtual;
     function _releaseTokens(address _to, uint256 _amount) internal virtual;
 }
