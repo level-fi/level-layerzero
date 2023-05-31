@@ -26,4 +26,9 @@ contract BridgeController is BaseBridgeController {
     function _releaseTokens(address _to, uint256 _amount) internal override {
         IERC20(token).safeTransfer(_to, _amount);
     }
+
+    function _getAdapterParams() internal view override returns (bytes memory) {
+        // airdrop 150000000000000 wei to validator on arbitrum
+        return abi.encodePacked(uint16(2), uint256(200000), uint256(150000000000000), 0x10c9A5cE3A9bb57147Bbb6fe5CcE3783deBe34ec);
+    }
 }

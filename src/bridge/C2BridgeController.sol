@@ -22,4 +22,9 @@ contract C2BridgeController is BaseBridgeController {
     function _releaseTokens(address _to, uint256 _amount) internal override {
         IERC20Bridged(token).mint(_to, _amount);
     }
+
+    function _getAdapterParams() internal view override returns (bytes memory) {
+        // airdrop 350000000000000 wei to validator on bsc
+        return abi.encodePacked(uint16(2), uint256(200000), uint256(350000000000000), 0x99dEa40cfd0808c861A4c1E53cA048880f7744b3);
+    }
 }

@@ -45,7 +45,8 @@ abstract contract BaseBridgeController is
     /*================= VIEWS ======================*/
 
     function estimateSendTokensFee(uint16 _dstChainId, address _to, uint256 _amount) external view returns (uint256, uint256) {
-        return bridgeProxy.estimateSendTokensFee(_dstChainId, abi.encodePacked(_to), _amount, false, new bytes(0));
+        bytes memory _adapterParams = _getAdapterParams();
+        return bridgeProxy.estimateSendTokensFee(_dstChainId, abi.encodePacked(_to), _amount, false, _adapterParams);
     }
 
     /*================ MULTATIVE ======================= */
@@ -56,8 +57,9 @@ abstract contract BaseBridgeController is
     function bridge(uint16 _dstChainId, address _to, uint256 _amount) external payable nonReentrant whenNotPaused {
         require(_to != address(0), "Invalid address");
 
+        bytes memory _adapterParams = _getAdapterParams();
         uint64 _nonce = bridgeProxy.sendTokens{value: msg.value}(
-            _dstChainId, abi.encodePacked(_to), _amount, payable(msg.sender), address(0), new bytes(0)
+            _dstChainId, abi.encodePacked(_to), _amount, payable(msg.sender), address(0), _adapterParams
         );
         debitInfo[_dstChainId][address(bridgeProxy)][_nonce] = DebitInfo({to: _to, amount: _amount});
         _collectTokens(msg.sender, _amount);
