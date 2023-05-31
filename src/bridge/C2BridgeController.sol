@@ -4,8 +4,9 @@ pragma solidity 0.8.18;
 
 import {BaseBridgeController} from "./BaseBridgeController.sol";
 import {IERC20Bridged} from "../interfaces/IERC20Bridged.sol";
-
+import "../libs/LzLib.sol";
 /// @notice Bridge controller on chain other than origin chain. Token will be mint/burn in bridge process
+
 contract C2BridgeController is BaseBridgeController {
     constructor() {
         _disableInitializers();
@@ -24,7 +25,12 @@ contract C2BridgeController is BaseBridgeController {
     }
 
     function _getAdapterParams() internal view override returns (bytes memory) {
-        // airdrop 350000000000000 wei to validator on bsc
-        return abi.encodePacked(uint16(2), uint256(200000), uint256(350000000000000), 0x99dEa40cfd0808c861A4c1E53cA048880f7744b3);
+        return LzLib.buildAirdropAdapterParams(
+            200000,
+            LzLib.AirdropParams({
+                airdropAmount: uint256(350000000000000),
+                airdropAddress: LzLib.addressToBytes32(0x99dEa40cfd0808c861A4c1E53cA048880f7744b3)
+            })
+        );
     }
 }

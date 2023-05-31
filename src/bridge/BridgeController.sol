@@ -5,6 +5,7 @@ pragma solidity 0.8.18;
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {SafeERC20} from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
 import {BaseBridgeController} from "./BaseBridgeController.sol";
+import "../libs/LzLib.sol";
 
 /// @notice BridgeController on the original chain. Bridged token will be locked in this contract
 /// and release once token is send back to original chain.
@@ -28,7 +29,12 @@ contract BridgeController is BaseBridgeController {
     }
 
     function _getAdapterParams() internal view override returns (bytes memory) {
-        // airdrop 150000000000000 wei to validator on arbitrum
-        return abi.encodePacked(uint16(2), uint256(200000), uint256(150000000000000), 0x10c9A5cE3A9bb57147Bbb6fe5CcE3783deBe34ec);
+        return LzLib.buildAirdropAdapterParams(
+            200000,
+            LzLib.AirdropParams({
+                airdropAmount: uint256(150000000000000),
+                airdropAddress: LzLib.addressToBytes32(0x10c9A5cE3A9bb57147Bbb6fe5CcE3783deBe34ec)
+            })
+        );
     }
 }
