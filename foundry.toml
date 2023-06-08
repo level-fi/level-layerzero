@@ -10,3 +10,7 @@ verbosity = 2
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
 [fmt]
 line_length = 140
+
+[rpc_endpoints]
+arbitrum = "https://arb1.arbitrum.io/rpc"
+bsc = "https://rpc.ankr.com/bsc"
