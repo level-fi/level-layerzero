@@ -48,7 +48,7 @@ abstract contract BaseBridgeController is
         return bridgeProxy.estimateSendTokensFee(_dstChainId, abi.encodePacked(_to), _amount, false, new bytes(0));
     }
 
-    /*================ MULTATIVE ======================= */
+    /*================ MUTATIVE =======================*/
     /// @notice send token to destination chain
     /// @param _dstChainId chain id defined by layerzero
     /// @param _to receiver address

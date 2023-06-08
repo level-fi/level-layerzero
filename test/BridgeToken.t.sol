@@ -79,8 +79,7 @@ contract BridgeTokenTest is Test {
 
         localEndPoint.setDestLzEndpoint(address(remoteProxy), address(remoteEndPoint));
         remoteEndPoint.setDestLzEndpoint(address(localProxy), address(localEndPoint));
-        remoteToken.initialize();
-        remoteToken.setBridgeController(address(remoteRouter));
+        remoteToken.initialize(address(remoteRouter));
         vm.stopPrank();
     }
 

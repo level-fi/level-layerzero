@@ -31,12 +31,6 @@ abstract contract BaseBridgedERC20 is OwnableUpgradeable, PausableUpgradeable, E
         _burn(account, amount);
     }
 
-    function setBridgeController(address _controller) external onlyOwner {
-        require(_controller != address(0));
-        bridgeController = _controller;
-        emit BridgeControllerSet(_controller);
-    }
-
     function pause() external onlyOwner {
         _pause();
     }
