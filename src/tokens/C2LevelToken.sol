@@ -11,7 +11,7 @@ contract C2LevelToken is BaseBridgedERC20 {
     }
 
     function initialize(address _bridgeController) external initializer {
-        require(_bridgeController != address(0));
+        require(_bridgeController != address(0), "Invalid address");
         __BaseBridgedERC20_init("Level Token", "LVL");
         bridgeController = _bridgeController;
     }
