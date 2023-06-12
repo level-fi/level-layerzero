@@ -13,7 +13,7 @@ contract BrigedTokenTest is Test {
         vm.startPrank(owner);
         ProxyAdmin proxyAdmin = new ProxyAdmin();
         Proxy _remoteToken =
-            new Proxy(address(new C2LevelToken()), address(proxyAdmin), abi.encodeWithSelector(C2LevelToken.initialize.selector));
+        new Proxy(address(new C2LevelToken()), address(proxyAdmin), abi.encodeWithSelector(C2LevelToken.initialize.selector, controller));
         remoteToken = C2LevelToken(address(_remoteToken));
         vm.stopPrank();
     }
@@ -21,7 +21,7 @@ contract BrigedTokenTest is Test {
     function test_init() external {
         ProxyAdmin proxyAdmin = new ProxyAdmin();
         Proxy _remoteToken =
-            new Proxy(address(new C2LevelToken()), address(proxyAdmin), abi.encodeWithSelector(C2LevelToken.initialize.selector));
+        new Proxy(address(new C2LevelToken()), address(proxyAdmin), abi.encodeWithSelector(C2LevelToken.initialize.selector, controller));
         C2LevelToken token = C2LevelToken(address(_remoteToken));
         assertEq(token.decimals(), 18);
     }
@@ -29,21 +29,7 @@ contract BrigedTokenTest is Test {
     event BridgeControllerSet(address);
     event Transfer(address indexed from, address indexed to, uint256 amount);
 
-    function test_only_owner_can_set_controller() external {
-        vm.prank(eve);
-        vm.expectRevert(bytes("Ownable: caller is not the owner"));
-        remoteToken.setBridgeController(controller);
-
-        vm.prank(owner);
-        vm.expectEmit(address(remoteToken));
-        emit BridgeControllerSet(controller);
-        remoteToken.setBridgeController(controller);
-    }
-
     function test_only_minter_can_mint() external {
-        vm.prank(owner);
-        remoteToken.setBridgeController(controller);
-
         vm.prank(eve);
         vm.expectRevert(bytes("!minter"));
         remoteToken.mint(address(1), 1 ether);
@@ -66,9 +52,6 @@ contract BrigedTokenTest is Test {
         vm.expectEmit(address(remoteToken));
         emit Paused(owner);
         remoteToken.pause();
-
-        vm.prank(owner);
-        remoteToken.setBridgeController(controller);
 
         vm.prank(controller);
         vm.expectRevert(bytes("Pausable: paused"));

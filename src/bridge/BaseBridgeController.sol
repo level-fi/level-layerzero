@@ -53,7 +53,7 @@ abstract contract BaseBridgeController is
         return (sendFee + validatorFee, zroFee);
     }
 
-    /*================ MULTATIVE ======================= */
+    /*================ MUTATIVE =======================*/
     /// @notice send token to destination chain
     /// @param _dstChainId chain id defined by layerzero
     /// @param _to receiver address

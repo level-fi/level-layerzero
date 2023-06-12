@@ -129,7 +129,6 @@ contract BridgeControllerTest is Test {
         remoteProxy.initialize(address(remoteController), address(remoteEndPoint));
 
         remoteController.setValidator(validator);
-        remoteToken.setBridgeController(address(remoteController));
     }
 
     function setUp() public {
