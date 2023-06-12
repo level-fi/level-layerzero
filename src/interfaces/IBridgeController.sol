@@ -22,4 +22,5 @@ interface IBridgeController {
     event CreditInfoAddedToQueue(uint16 _srcChainId, bytes _srcAddress, uint64 _nonce, address _to, uint256 _amount);
     event ValidatorSet(address _validator);
     event ValidatorFeeSet(uint256 _fee);
+    event MinBridgeAmountSet(uint256 _amount);
 }

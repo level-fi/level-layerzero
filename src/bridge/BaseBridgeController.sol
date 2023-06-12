@@ -26,6 +26,8 @@ abstract contract BaseBridgeController is
 
     uint256 public validatorFee;
 
+    uint256 public minBridgeAmount;
+
     modifier onlyBridgeProxy() {
         require(msg.sender == address(bridgeProxy), "!Bridge Proxy");
         _;
@@ -60,6 +62,7 @@ abstract contract BaseBridgeController is
     /// @param _amount how many token to send
     function bridge(uint16 _dstChainId, address _to, uint256 _amount) external payable nonReentrant whenNotPaused {
         require(_to != address(0), "Invalid address");
+        require(_amount >= minBridgeAmount, "< minBridgeAmount");
         // charge validator fee
         uint256 sendFee = msg.value - validatorFee;
 
@@ -124,6 +127,10 @@ abstract contract BaseBridgeController is
         emit ValidatorFeeSet(_validatorFee);
     }
 
+    function setMinBridgeAmount(uint256 _amount) external onlyOwner {
+        minBridgeAmount = _amount;
+        emit MinBridgeAmountSet(_amount);
+    }
     // INTERNALS
 
     function _safeTransferETH(address _to, uint256 _amount) internal {
