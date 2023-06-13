@@ -12,8 +12,8 @@ forge test
 
 ## BridgeController.sol
 - This contract is Bridge Controller on BNB Chain
-- Saved LVL tokens sent from BNB
-- Transfer LVL tokens to user if bridge request validated
+- Lock LVL tokens sent from BNB
+- Unlock LVL tokens to user if bridge request validated
 
 ## C2BridgeController.sol
 - This contract is Bridge Controller on Arbitrum
