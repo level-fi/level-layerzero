@@ -140,11 +140,12 @@ contract BridgeControllerTest is Test {
 
         // deploy tokens
         localToken = new LevelToken();
-        Proxy _remoteToken = new Proxy(address(new C2LevelToken()), proxyAdmin, abi.encodeWithSelector(C2LevelToken.initialize.selector));
+        Proxy _remoteToken = new Proxy(address(new C2LevelToken()), proxyAdmin, new bytes(0));
         remoteToken = C2LevelToken(address(_remoteToken));
 
         _deployLocalChain();
         _deployRemoteChain();
+        remoteToken.initialize(address(remoteController));
 
         // wire up bridge
         localProxy.setTrustedRemoteAddress(REMOTE_CHAIN_ID, abi.encodePacked(address(remoteProxy)));
