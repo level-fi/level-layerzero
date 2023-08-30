@@ -5,10 +5,10 @@ pragma solidity 0.8.18;
 import "forge-std/Test.sol";
 import {TransparentUpgradeableProxy as Proxy} from "openzeppelin/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {ProxyAdmin} from "openzeppelin/proxy/transparent/ProxyAdmin.sol";
-import "src/tokens/C2LevelGovernance.sol";
+import "src/tokens/C2LevelGovernanceToken.sol";
 
 contract BrigedTokenTest is Test {
-    C2LevelGovernance remoteToken;
+    C2LevelGovernanceToken remoteToken;
     address controller = address(bytes20("c2.controller"));
     address owner = address(bytes20("owner"));
     address eve = address(bytes20("eve"));
@@ -17,16 +17,16 @@ contract BrigedTokenTest is Test {
         vm.startPrank(owner);
         ProxyAdmin proxyAdmin = new ProxyAdmin();
         Proxy _remoteToken =
-        new Proxy(address(new C2LevelGovernance()), address(proxyAdmin), abi.encodeWithSelector(C2LevelGovernance.initialize.selector, controller));
-        remoteToken = C2LevelGovernance(address(_remoteToken));
+        new Proxy(address(new C2LevelGovernanceToken()), address(proxyAdmin), abi.encodeWithSelector(C2LevelGovernanceToken.initialize.selector, controller));
+        remoteToken = C2LevelGovernanceToken(address(_remoteToken));
         vm.stopPrank();
     }
 
     function test_init() external {
         ProxyAdmin proxyAdmin = new ProxyAdmin();
         Proxy _remoteToken =
-        new Proxy(address(new C2LevelGovernance()), address(proxyAdmin), abi.encodeWithSelector(C2LevelGovernance.initialize.selector, controller));
-        C2LevelGovernance token = C2LevelGovernance(address(_remoteToken));
+        new Proxy(address(new C2LevelGovernanceToken()), address(proxyAdmin), abi.encodeWithSelector(C2LevelGovernanceToken.initialize.selector, controller));
+        C2LevelGovernanceToken token = C2LevelGovernanceToken(address(_remoteToken));
         assertEq(token.decimals(), 18);
     }
 
