@@ -33,6 +33,8 @@ contract BridgeController is BaseBridgeController {
 
      function burnLGO(uint256 _batchId) external onlyOwner {
         require(!batchLGOBurned[_batchId], "Burned");
+        (,,,bool _isFinalized) = lgoRedemption.snapshots(_batchId);
+        require(_isFinalized, "!Finalized");
         uint256 _amountLGO = lgoRedemption.totalRedemptionAllChain(_batchId) - lgoRedemption.totalRedemptionByChain(_batchId, 56);
         if(_amountLGO > 0) {
             batchLGOBurned[_batchId] = true;
